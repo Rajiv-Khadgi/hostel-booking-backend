@@ -31,6 +31,11 @@ export const scheduleVisit = async (req, res) => {
             });
         }
 
+        const student = await User.findByPk(req.user.id, {
+            attributes: ['first_name', 'last_name', 'email']
+        });
+
+
         const visit = await Visit.create({
             user_id: req.user.id,
             hostel_id: data.hostel_id,
@@ -45,7 +50,7 @@ export const scheduleVisit = async (req, res) => {
             `
                 <h3>New Visit Request</h3>
                 <p><b>Hostel:</b> ${hostel.name}</p>
-                <p><b>Student:</b> ${req.user.first_name} ${req.user.last_name}</p>
+                <p><b>Student:</b> ${student.first_name} ${student.last_name}</p>
                 <p><b>Visit Date:</b> ${data.visit_date}</p>
                 <p>Please login to approve or reject this visit.</p>
             `
