@@ -1,8 +1,11 @@
 import { Sequelize } from 'sequelize';
 import UserModel from '../models/User.js';
 import HostelModel from '../models/Hostel.js';
-import RoomModel from '../models/Room.js'; // new
-import HostelImageModel from '../models/HostelImage.js';
+import RoomModel from '../models/Room.js';
+import AmenityModel from '../models/Amenity.js';
+import ServiceModel from '../models/Service.js';
+import ReviewModel from '../models/Review.js';
+import ImageModel from '../models/Image.js'; // Polymorphic
 import BookingModel from '../models/Booking.js';
 import VisitModel from '../models/Visit.js';
 
@@ -23,29 +26,64 @@ export const sequelize = new Sequelize(
 export const User = UserModel(sequelize);
 export const Hostel = HostelModel(sequelize);
 export const Room = RoomModel(sequelize);
-export const HostelImage = HostelImageModel(sequelize);
+export const Amenity = AmenityModel(sequelize);
+export const Service = ServiceModel(sequelize);
+export const Review = ReviewModel(sequelize);
+export const Image = ImageModel(sequelize);
 export const Booking = BookingModel(sequelize);
 export const Visit = VisitModel(sequelize);
 
 
 // Define associations
+
+// User <-> Hostel
 User.hasMany(Hostel, { foreignKey: 'user_id', as: 'hostels' });
 Hostel.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
 
+// Hostel <-> Room
 Hostel.hasMany(Room, { foreignKey: 'hostel_id', as: 'rooms' });
 Room.belongsTo(Hostel, { foreignKey: 'hostel_id', as: 'hostel' });
 
-Hostel.hasMany(HostelImage, { foreignKey: 'hostel_id', as: 'images' });
-HostelImage.belongsTo(Hostel, { foreignKey: 'hostel_id', as: 'hostel' });
+// Polymorphic Images
+Hostel.hasMany(Image, {
+    foreignKey: 'entity_id',
+    constraints: false,
+    scope: { entity_type: 'HOSTEL' },
+    as: 'images'
+});
 
+Room.hasMany(Image, {
+    foreignKey: 'entity_id',
+    constraints: false,
+    scope: { entity_type: 'ROOM' },
+    as: 'images'
+});
 
+Image.belongsTo(Hostel, { foreignKey: 'entity_id', constraints: false });
+Image.belongsTo(Room, { foreignKey: 'entity_id', constraints: false });
+
+// Amenities & Services (Many-to-Many)
+Hostel.belongsToMany(Amenity, { through: 'HostelAmenities', foreignKey: 'hostel_id', as: 'amenities' });
+Amenity.belongsToMany(Hostel, { through: 'HostelAmenities', foreignKey: 'amenity_id', as: 'hostels' });
+
+Hostel.belongsToMany(Service, { through: 'HostelServices', foreignKey: 'hostel_id', as: 'services' });
+Service.belongsToMany(Hostel, { through: 'HostelServices', foreignKey: 'service_id', as: 'hostels' });
+
+// Reviews
+User.hasMany(Review, { foreignKey: 'user_id', as: 'reviews' });
+Review.belongsTo(User, { foreignKey: 'user_id', as: 'reviewer' });
+
+Hostel.hasMany(Review, { foreignKey: 'hostel_id', as: 'reviews' });
+Review.belongsTo(Hostel, { foreignKey: 'hostel_id', as: 'hostel' });
+
+// Bookings
 User.hasMany(Booking, { foreignKey: 'user_id', as: 'bookings' });
 Booking.belongsTo(User, { foreignKey: 'user_id', as: 'student' });
 
 Room.hasMany(Booking, { foreignKey: 'room_id', as: 'bookings' });
 Booking.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
 
-
+// Visits
 User.hasMany(Visit, { foreignKey: 'user_id', as: 'visits' });
 Visit.belongsTo(User, { foreignKey: 'user_id', as: 'student' });
 
