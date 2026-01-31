@@ -1,32 +1,20 @@
-import { Hostel, User } from '../config/database.js';
+import HostelService from '../services/hostelService.js';
 import { CreateHostelDTO } from '../dto/CreateHostelDTO.js';
 import { UpdateHostelDTO } from '../dto/UpdateHostelDTO.js';
-
-
 
 // Create Hostel 
 export const createHostel = async (req, res) => {
     try {
-        // Check if this owner already has a hostel
-        const existingHostel = await Hostel.findOne({ where: { user_id: req.user.id } });
-        if (existingHostel) {
-            return res.status(400).json({ 
-                error: 'Each owner can register only one hostel' 
-            });
-        }
-
+        // TODO: Move this check to Service or proper validator
         const dto = new CreateHostelDTO(req.body);
         const data = await dto.validate();
 
-        const hostel = await Hostel.create({
-            ...data,
-            user_id: req.user.id // assign owner automatically
-        });
+        const hostel = await HostelService.create(data, req.user.id);
 
-        res.status(201).json({ 
-            success: true, 
-            message: 'Hostel created successfully', 
-            hostel 
+        res.status(201).json({
+            success: true,
+            message: 'Hostel created successfully',
+            hostel
         });
     } catch (err) {
         console.error('Create hostel error:', err);
@@ -39,24 +27,19 @@ export const createHostel = async (req, res) => {
 export const updateHostel = async (req, res) => {
     try {
         const { id } = req.params;
-
-        // Validate input
         const dto = new UpdateHostelDTO(req.body);
         const data = await dto.validate();
 
-        // Find the hostel
-        const hostel = await Hostel.findByPk(id);
+        // Authorization check (Service could handle this too, but Controller is fine for now)
+        const hostel = await HostelService.findById(id);
         if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
 
-        // Only admin or the owner of this hostel can update
         if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Unauthorized: only admin or owner can update' });
+            return res.status(403).json({ error: 'Unauthorized' });
         }
 
-        // Perform the update
-        await hostel.update(data);
-
-        res.json({ success: true, message: 'Hostel updated successfully', hostel });
+        const updatedHostel = await HostelService.update(id, data);
+        res.json({ success: true, message: 'Hostel updated successfully', hostel: updatedHostel });
     } catch (err) {
         console.error('Update hostel error:', err);
         res.status(400).json({ error: err.message });
@@ -67,19 +50,14 @@ export const updateHostel = async (req, res) => {
 export const deleteHostel = async (req, res) => {
     try {
         const { id } = req.params;
-
-        // Find the hostel
-        const hostel = await Hostel.findByPk(id);
+        const hostel = await HostelService.findById(id);
         if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
 
-        // Only admin or the owner of this hostel can delete
         if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Unauthorized: only admin or owner can delete' });
+            return res.status(403).json({ error: 'Unauthorized' });
         }
 
-        // Perform the deletion
-        await hostel.destroy();
-
+        await HostelService.delete(id);
         res.json({ success: true, message: 'Hostel deleted successfully' });
     } catch (err) {
         console.error('Delete hostel error:', err);
@@ -88,16 +66,10 @@ export const deleteHostel = async (req, res) => {
 };
 
 
-//  Get all Hostels 
+//  Get all Hostels (Public Search)
 export const getHostels = async (req, res) => {
     try {
-        const hostels = await Hostel.findAll({
-            include: {
-                model: User,
-                as: 'owner',
-                attributes: ['user_id', 'first_name', 'last_name', 'email']
-            }
-        });
+        const hostels = await HostelService.findAll(req.query);
         res.json({ success: true, hostels });
     } catch (err) {
         console.error('Get hostels error:', err);
@@ -108,14 +80,7 @@ export const getHostels = async (req, res) => {
 //  Get single Hostel 
 export const getHostelById = async (req, res) => {
     try {
-        const { id } = req.params;
-        const hostel = await Hostel.findByPk(id, {
-            include: {
-                model: User,
-                as: 'owner',
-                attributes: ['user_id', 'first_name', 'last_name', 'email']
-            }
-        });
+        const hostel = await HostelService.findById(req.params.id);
         if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
         res.json({ success: true, hostel });
     } catch (err) {
