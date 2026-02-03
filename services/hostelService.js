@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Hostel, User, HostelImage, Image, Amenity, Review, Room, sequelize } from '../config/database.js';
+import { Hostel, User, Image, Amenity, Review, Room, sequelize } from '../config/database.js';
 
 class HostelService {
 
