@@ -36,8 +36,8 @@ const HostelModel = (sequelize) => {
             allowNull: true
         },
         status: {
-            type: DataTypes.ENUM('active', 'inactive'),
-            defaultValue: 'active',
+            type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
+            defaultValue: 'PENDING',
             allowNull: false
         },
         user_id: {

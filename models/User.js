@@ -41,7 +41,7 @@ const UserModel = (sequelize) => {
             allowNull: false
         },
         status: {
-            type: DataTypes.ENUM('active', 'inactive'),
+            type: DataTypes.ENUM('active', 'suspended', 'deleted'),
             defaultValue: 'active',
             allowNull: false
         },

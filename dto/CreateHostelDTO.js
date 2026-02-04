@@ -8,6 +8,8 @@ const hostelSchema = yup.object({
     address: yup.string().required('Address is required'),
     latitude: yup.number().nullable(),
     longitude: yup.number().nullable(),
+    amenityIds: yup.array().of(yup.number()).optional(),
+    serviceIds: yup.array().of(yup.number()).optional()
 });
 
 export class CreateHostelDTO {

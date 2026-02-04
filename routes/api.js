@@ -14,9 +14,9 @@ import {
 
 import hostelRoutes from './hostelRoutes.js';
 import roomRoutes from './roomRoutes.js'; // new
-import hostelImageRoutes from "./hostelImageRoutes.js";
 import bookingRoutes from "./bookingRoutes.js";
 import visitRoutes from './visitRoutes.js';
+import metadataRoutes from './metadataRoutes.js';
 
 import { authenticate } from '../middleware/authMiddleware.js';
 
@@ -33,11 +33,13 @@ router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/profile', authenticate, profile);
 
+// Metadata (Public)
+router.use('/', metadataRoutes);
+
 // Hostel CRUD
 router.use('/hostels', hostelRoutes);
 
 
-router.use('/hostels', hostelImageRoutes);
 // Room CRUD
 router.use('/rooms', roomRoutes); // new
 
