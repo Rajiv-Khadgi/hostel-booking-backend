@@ -6,7 +6,9 @@ import {
     updateHostel,
     deleteHostel,
     getHostels,
-    getHostelById
+    getHostelById,
+    approveHostel,
+    rejectHostel
 } from '../controllers/hostelController.js';
 
 const router = express.Router();
@@ -19,5 +21,7 @@ router.get('/:id', getHostelById);
 router.post('/', authenticate, authorize('owner', 'admin'), createHostel);
 router.put('/:id', authenticate, authorize('owner', 'admin'), updateHostel);
 router.delete('/:id', authenticate, authorize('owner', 'admin'), deleteHostel);
+router.patch('/:id/approve', authenticate, authorize('admin'), approveHostel);
+router.patch('/:id/reject', authenticate, authorize('admin'), rejectHostel);
 
 export default router;

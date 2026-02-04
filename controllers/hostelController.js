@@ -88,3 +88,50 @@ export const getHostelById = async (req, res) => {
         res.status(400).json({ error: err.message });
     }
 };
+
+// Approve Hostel 
+export const approveHostel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const hostel = await HostelService.findById(id);
+        if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
+
+        if (hostel.status === 'APPROVED') {
+            return res.status(400).json({ error: 'Hostel is already approved' });
+        }
+
+        await HostelService.update(id, { status: 'APPROVED' });
+        const updatedHostel = await HostelService.findById(id);
+
+        res.json({ success: true, message: 'Hostel approved', hostel: updatedHostel });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Reject Hostel
+export const rejectHostel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        const hostel = await HostelService.findById(id);
+        if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
+
+        if (hostel.status === 'REJECTED') {
+            return res.status(400).json({ error: 'Hostel is already rejected' });
+        }
+
+        await HostelService.update(id, { status: 'REJECTED' });
+        const updatedHostel = await HostelService.findById(id);
+
+        res.json({
+            success: true,
+            message: 'Hostel rejected',
+            reason: reason || 'No reason provided',
+            hostel: updatedHostel
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
