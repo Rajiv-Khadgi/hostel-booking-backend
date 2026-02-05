@@ -5,26 +5,6 @@ class ReviewService {
 
     // Create a review
     async createReview(data, userId) {
-        // 1. Verify if user has a completed booking at this hostel
-        const hasBooking = await Booking.findOne({
-            where: {
-                user_id: userId,
-                status: 'COMPLETED', // Strict check: must be completed
-                end_date: { [Op.lte]: new Date() } // Double check date
-            },
-            include: {
-                model: Room,
-                as: 'room',
-                where: { hostel_id: data.hostel_id }
-            }
-        });
-
-        // For MVP/Testing, we might relax 'COMPLETED' to 'APPROVED' if 'COMPLETED' logic isn't automated yet.
-        // But per requirements, let's keep it strict or allow 'APPROVED' if logic demands.
-        // Let's stick to strict business rule: "Verified Stay" usually means completed.
-        // However, if the system doesn't auto-complete bookings, students can't review.
-        // Let's check for 'APPROVED' && start_date <= today (Checked In).
-
         const validStay = await Booking.findOne({
             where: {
                 user_id: userId,
@@ -32,9 +12,9 @@ class ReviewService {
                 start_date: { [Op.lte]: new Date() } // Must have at least started stay
             },
             include: {
-                model: 'Room', // Assumes 'Room' alias or model name usage in include
-                where: { hostel_id: data.hostel_id },
-                as: 'room'
+                model: Room,
+                as: 'room',
+                where: { hostel_id: data.hostel_id }
             }
         });
 
@@ -68,7 +48,7 @@ class ReviewService {
                 {
                     model: User,
                     as: 'reviewer',
-                    attributes: ['first_name', 'last_name', 'profile_image'] // Add profile pic if exists
+                    attributes: ['first_name', 'last_name']
                 }
             ],
             order: [['created_at', 'DESC']]
