@@ -16,7 +16,6 @@ import hostelRoutes from './hostelRoutes.js';
 import roomRoutes from './roomRoutes.js'; // new
 import bookingRoutes from "./bookingRoutes.js";
 import visitRoutes from './visitRoutes.js';
-import visitRoutes from './visitRoutes.js';
 import metadataRoutes from './metadataRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
 
