@@ -8,8 +8,7 @@ import {
     forgotPassword,
     resetPassword,
     refresh,
-    logout,
-    profile
+    logout
 } from '../controllers/authController.js';
 
 import hostelRoutes from './hostelRoutes.js';
@@ -31,7 +30,10 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
-router.get('/profile', authenticate, profile);
+router.post('/logout', logout);
+
+// Profile
+router.use('/profile', profileRoutes);
 
 // Metadata (Public)
 router.use('/', metadataRoutes);
