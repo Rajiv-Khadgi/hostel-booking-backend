@@ -16,6 +16,7 @@ import roomRoutes from './roomRoutes.js'; // new
 import bookingRoutes from "./bookingRoutes.js";
 import visitRoutes from './visitRoutes.js';
 import metadataRoutes from './metadataRoutes.js';
+import profileRoutes from './profileRoutes.js';
 
 import { authenticate } from '../middleware/authMiddleware.js';
 
