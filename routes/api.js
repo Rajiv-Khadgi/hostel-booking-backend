@@ -31,7 +31,7 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
-router.post('/logout', logout);
+
 
 // Profile
 router.use('/profile', profileRoutes);
