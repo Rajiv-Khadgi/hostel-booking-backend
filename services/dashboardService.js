@@ -123,6 +123,26 @@ class DashboardService {
         };
     }
 
+    // Admin Stats
+    async getAdminStats() {
+        const totalStudents = await User.count({ where: { role: 'student' } });
+        const totalOwners = await User.count({ where: { role: 'owner' } });
+
+        const totalHostels = await Hostel.count();
+        const pendingHostels = await Hostel.count({ where: { status: 'PENDING' } });
+
+        return {
+            total_users: {
+                students: totalStudents,
+                owners: totalOwners
+            },
+            hostel_stats: {
+                total: totalHostels,
+                pending: pendingHostels
+            },
+            system_health: 'Operational'
+        };
+    }
 }
 
 export default new DashboardService();
