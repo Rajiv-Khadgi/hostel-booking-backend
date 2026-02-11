@@ -13,7 +13,8 @@ import {
 } from '../controllers/authController.js';
 
 import hostelRoutes from './hostelRoutes.js';
-import roomRoutes from './roomRoutes.js'; // new
+import profileRoutes from './profileRoutes.js';
+import dashboardRoutes from './dashboardRoutes.js'; // new
 import bookingRoutes from "./bookingRoutes.js";
 import visitRoutes from './visitRoutes.js';
 import metadataRoutes from './metadataRoutes.js';
@@ -39,6 +40,12 @@ router.use('/', metadataRoutes);
 // Hostel CRUD
 router.use('/hostels', hostelRoutes);
 
+
+// Profile
+router.use('/profile', profileRoutes);
+
+// Dashboard
+router.use('/dashboard', dashboardRoutes); // new
 
 // Room CRUD
 router.use('/rooms', roomRoutes); // new
