@@ -40,8 +40,8 @@ class DashboardService {
                 date: upcomingVisit.visit_date,
                 hostel: upcomingVisit.hostel.name
             } : null,
-            total_spend: 0,     // Placeholder
-            saved_hostels: 0    // Placeholder
+            total_spend: 0,     // Placeholder for remaining feature
+            saved_hostels: 0    // Placeholder for remaining feature
         };
     }
 
@@ -68,7 +68,7 @@ class DashboardService {
         }
 
         // Active Students (Unique users with APPROVED/COMPLETED bookings in these hostels)
-        // This is a bit complex, simplifying to count of active bookings
+
         const activeBookingsCount = await Booking.count({
             include: {
                 model: Room,
@@ -88,7 +88,7 @@ class DashboardService {
         });
         const totalBeds = totalBedsResult || 0; // handle null if no rooms
 
-        // Active Approved bookings consume 1 bed each
+
         // (Assuming 1 booking = 1 bed. If booking has 'guests' count, multiply)
         // Using activeBookingsCount from above
         const occupiedBeds = activeBookingsCount;
@@ -123,26 +123,6 @@ class DashboardService {
         };
     }
 
-    // Admin Stats
-    async getAdminStats() {
-        const totalStudents = await User.count({ where: { role: 'student' } });
-        const totalOwners = await User.count({ where: { role: 'owner' } });
-
-        const totalHostels = await Hostel.count();
-        const pendingHostels = await Hostel.count({ where: { status: 'PENDING' } });
-
-        return {
-            total_users: {
-                students: totalStudents,
-                owners: totalOwners
-            },
-            hostel_stats: {
-                total: totalHostels,
-                pending: pendingHostels
-            },
-            system_health: 'Operational'
-        };
-    }
 }
 
 export default new DashboardService();
