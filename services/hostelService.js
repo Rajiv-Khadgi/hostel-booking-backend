@@ -162,6 +162,15 @@ class HostelService {
 
         return await SavedHostel.create({ user_id: userId, hostel_id: hostelId });
     }
+
+    // Unsave Hostel
+    async unsaveHostel(userId, hostelId) {
+        return await SavedHostel.destroy({
+            where: { user_id: userId, hostel_id: hostelId }
+        });
+    }
+
+
 }
 
 export default new HostelService();
