@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Hostel, User, Image, Amenity, Review, Room, sequelize } from '../config/database.js';
+import { Hostel, User, Image, Amenity, Review, Room, SavedHostel, sequelize } from '../config/database.js';
 
 class HostelService {
 
@@ -96,11 +96,7 @@ class HostelService {
         }
 
         // 4. Amenity Filter
-        // If sorting by specific amenities, we need to ensure the hostel has ALL of them.
-        // This is complex in Sequelize. A simpler approach for now is to filter AFTER fetching, 
-        // or use a separate subquery. For strict filtering "has all", subquery is best.
-        // For MVP/Phase 1: We will filter where it matches *any* (standard include behavior) 
-        // or refine if strict matching is needed.
+        
         if (amenities) {
             const amenityList = amenities.split(',');
             includeOptions.forEach(inc => {
@@ -150,6 +146,21 @@ class HostelService {
         const hostel = await Hostel.findByPk(id);
         if (!hostel) throw new Error('Hostel not found');
         return await hostel.destroy();
+    }
+
+    // Save Hostel (Wishlist)
+    async saveHostel(userId, hostelId) {
+        const hostel = await Hostel.findByPk(hostelId);
+        if (!hostel) throw new Error('Hostel not found');
+
+        // Check if already saved (handled by unique constraint, but good to check)
+        const existing = await SavedHostel.findOne({
+            where: { user_id: userId, hostel_id: hostelId }
+        });
+
+        if (existing) return existing; // Idempotent success
+
+        return await SavedHostel.create({ user_id: userId, hostel_id: hostelId });
     }
 }
 
