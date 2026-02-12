@@ -1,4 +1,4 @@
-import { sequelize, User, Hostel, Room, Booking, Visit } from '../config/database.js';
+import { sequelize, User, Hostel, Room, Booking, Visit, SavedHostel } from '../config/database.js';
 import { Op } from 'sequelize';
 
 class DashboardService {
@@ -40,8 +40,8 @@ class DashboardService {
                 date: upcomingVisit.visit_date,
                 hostel: upcomingVisit.hostel.name
             } : null,
-            total_spend: 0,     // Placeholder for remaining feature
-            saved_hostels: 0    // Placeholder for remaining feature
+            total_spend: 0,
+            saved_hostels: await SavedHostel.count({ where: { user_id: userId } })
         };
     }
 
