@@ -170,7 +170,34 @@ class HostelService {
         });
     }
 
+    // Get Saved Hostels for User
+    async getSavedHostels(userId) {
+        const saved = await SavedHostel.findAll({
+            where: { user_id: userId },
+            include: [
+                {
+                    model: Hostel,
+                    include: [
+                        { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
+                        { model: Room, as: 'rooms', attributes: ['price'] } // To show "Starts from" price
+                    ]
+                }
+            ]
+        });
 
+        // Transform for cleaner frontend consumption 
+        return saved.map(s => {
+            const h = s.Hostel;
+            const prices = h.rooms.map(r => r.price);
+            const minPrice = prices.length ? Math.min(...prices) : null;
+
+            return {
+                ...h.toJSON(),
+                min_price: minPrice,
+                saved_at: s.created_at
+            };
+        });
+    }
 }
 
 export default new HostelService();
