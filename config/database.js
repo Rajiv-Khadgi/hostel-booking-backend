@@ -50,7 +50,7 @@ Hostel.belongsToMany(User, { through: SavedHostel, as: 'savedBy', foreignKey: 'h
 User.hasMany(SavedHostel, { foreignKey: 'user_id' });
 SavedHostel.belongsTo(User, { foreignKey: 'user_id' });
 Hostel.hasMany(SavedHostel, { foreignKey: 'hostel_id' });
-SavedHostel.belongsTo(Hostel, { foreignKey: 'hostel_id' });
+SavedHostel.belongsTo(Hostel, { foreignKey: 'hostel_id', as: 'hostel' });
 
 
 // Hostel <-> Room
