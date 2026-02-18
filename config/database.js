@@ -23,6 +23,8 @@ export const sequelize = new Sequelize(
 );
 
 import SavedHostelModel from '../models/SavedHostel.js';
+import ConversationModel from '../models/Conversation.js';
+import MessageModel from '../models/Message.js';
 
 // Initialize Models
 export const User = UserModel(sequelize);
@@ -35,6 +37,8 @@ export const Image = ImageModel(sequelize);
 export const Booking = BookingModel(sequelize);
 export const Visit = VisitModel(sequelize);
 export const SavedHostel = SavedHostelModel(sequelize);
+export const Conversation = ConversationModel(sequelize);
+export const Message = MessageModel(sequelize);
 
 
 // Associations
@@ -102,6 +106,18 @@ Visit.belongsTo(User, { foreignKey: 'user_id', as: 'student' });
 
 Hostel.hasMany(Visit, { foreignKey: 'hostel_id', as: 'visits' });
 Visit.belongsTo(Hostel, { foreignKey: 'hostel_id', as: 'hostel' });
+
+// Chat System
+// User has many conversations (Complex because user can be participant1 OR participant2)
+// We typically fetch conversations by querying where participant1=ID OR participant2=ID
+
+Conversation.belongsTo(User, { as: 'participant1', foreignKey: 'participant1_id' });
+Conversation.belongsTo(User, { as: 'participant2', foreignKey: 'participant2_id' });
+
+Conversation.hasMany(Message, { foreignKey: 'conversation_id', as: 'messages' });
+Message.belongsTo(Conversation, { foreignKey: 'conversation_id' });
+
+Message.belongsTo(User, { as: 'sender', foreignKey: 'sender_id' });
 
 
 export const initDB = async () => {
