@@ -18,6 +18,7 @@ import bookingRoutes from "./bookingRoutes.js";
 import visitRoutes from './visitRoutes.js';
 import metadataRoutes from './metadataRoutes.js';
 import roomRoutes from './roomRoutes.js';
+import chatRoutes from './chatRoutes.js';
 import profileRoutes from './profileRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
 
@@ -59,6 +60,8 @@ router.use('/bookings', bookingRoutes);
 
 router.use('/visits', visitRoutes);
 
+// Chat
+router.use('/chat', chatRoutes); // Added route
 // Reviews
 router.use('/', reviewRoutes);
 
