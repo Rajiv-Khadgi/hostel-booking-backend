@@ -22,7 +22,9 @@ export const sequelize = new Sequelize(
     }
 );
 
-// Initialize models
+import SavedHostelModel from '../models/SavedHostel.js';
+
+// Initialize Models
 export const User = UserModel(sequelize);
 export const Hostel = HostelModel(sequelize);
 export const Room = RoomModel(sequelize);
@@ -32,13 +34,24 @@ export const Review = ReviewModel(sequelize);
 export const Image = ImageModel(sequelize);
 export const Booking = BookingModel(sequelize);
 export const Visit = VisitModel(sequelize);
+export const SavedHostel = SavedHostelModel(sequelize);
 
 
-// Define associations
+// Associations
 
-// User <-> Hostel
+// User <-> Hostel (Ownership)
 User.hasMany(Hostel, { foreignKey: 'user_id', as: 'hostels' });
 Hostel.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
+
+// User <-> SavedHostel <-> Hostel (Wishlist)
+User.belongsToMany(Hostel, { through: SavedHostel, as: 'savedHostels', foreignKey: 'user_id' });
+Hostel.belongsToMany(User, { through: SavedHostel, as: 'savedBy', foreignKey: 'hostel_id' });
+// Also useful to access the junction table directly if needed
+User.hasMany(SavedHostel, { foreignKey: 'user_id' });
+SavedHostel.belongsTo(User, { foreignKey: 'user_id' });
+Hostel.hasMany(SavedHostel, { foreignKey: 'hostel_id' });
+SavedHostel.belongsTo(Hostel, { foreignKey: 'hostel_id' });
+
 
 // Hostel <-> Room
 Hostel.hasMany(Room, { foreignKey: 'hostel_id', as: 'rooms' });

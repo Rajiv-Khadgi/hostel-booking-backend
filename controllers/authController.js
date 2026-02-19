@@ -179,7 +179,7 @@ export const forgotPassword = async (req, res) => {
 };
 
 //  Reset Password 
-export const resetPassword =  async (req, res) => {
+export const resetPassword = async (req, res) => {
     try {
         const dto = new ResetPasswordDTO(req.body);
         const validated = await dto.validate(); // use validated object
@@ -244,22 +244,4 @@ export const logout = async (req, res) => {
     }
 };
 
-//  Profile 
-export const profile = async (req, res) => {
-    try {
-        const dashboards = {
-            student: { path: '/dashboard/student', title: 'Student Dashboard' },
-            owner: { path: '/dashboard/owner', title: 'Owner Dashboard' },
-            admin: { path: '/dashboard/admin', title: 'Admin Dashboard' }
-        };
 
-        res.json({
-            success: true,
-            user: req.user,
-            dashboard: dashboards[req.user.role] || dashboards.student
-        });
-    } catch (err) {
-        console.error('Profile error:', err);
-        res.status(500).json({ error: 'Profile fetch failed' });
-    }
-};

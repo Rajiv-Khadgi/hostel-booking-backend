@@ -1,5 +1,5 @@
 import { DataTypes } from 'sequelize';
-import { Hostel } from '../config/database.js';
+
 
 const RoomModel = (sequelize) => {
     const Room = sequelize.define('Room', {

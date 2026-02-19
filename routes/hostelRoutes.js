@@ -17,7 +17,7 @@ import {
 
 const router = express.Router();
 
-
+// Saved Hostels 
 router.get('/saved', authenticate, getSavedHostels);
 router.post('/:id/save', authenticate, saveHostel);
 router.delete('/:id/save', authenticate, unsaveHostel);
