@@ -17,6 +17,7 @@ import bookingRoutes from "./bookingRoutes.js";
 import visitRoutes from './visitRoutes.js';
 import metadataRoutes from './metadataRoutes.js';
 import profileRoutes from './profileRoutes.js';
+import reviewRoutes from './reviewRoutes.js';
 
 import { authenticate } from '../middleware/authMiddleware.js';
 
@@ -49,6 +50,9 @@ router.use('/rooms', roomRoutes); // new
 router.use('/bookings', bookingRoutes);
 
 router.use('/visits', visitRoutes);
+
+// Reviews
+router.use('/', reviewRoutes);
 
 
 export default router;

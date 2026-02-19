@@ -23,6 +23,14 @@ const ReviewModel = (sequelize) => {
         hostel_id: {
             type: DataTypes.INTEGER,
             allowNull: false
+        },
+        reply: {
+            type: DataTypes.TEXT,
+            allowNull: true
+        },
+        reply_date: {
+            type: DataTypes.DATE,
+            allowNull: true
         }
     }, {
         tableName: 'reviews',
