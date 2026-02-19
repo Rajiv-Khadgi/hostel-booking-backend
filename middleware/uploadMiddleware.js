@@ -1,13 +1,20 @@
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+
+// Ensure upload directory exists
+const uploadDir = 'uploads/avatars';
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/hostels');
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueName + path.extname(file.originalname));
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
 

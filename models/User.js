@@ -45,6 +45,10 @@ const UserModel = (sequelize) => {
             defaultValue: 'active',
             allowNull: false
         },
+        profile_image: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
         password_reset_token: {
             type: DataTypes.TEXT,
             allowNull: true
