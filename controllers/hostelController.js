@@ -135,3 +135,35 @@ export const rejectHostel = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+// Save Hostel
+export const saveHostel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await HostelService.saveHostel(req.user.id, id);
+        res.json({ success: true, message: 'Hostel saved' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// Unsave Hostel
+export const unsaveHostel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await HostelService.unsaveHostel(req.user.id, id);
+        res.json({ success: true, message: 'Hostel removed from saved list' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// Get Saved Hostels
+export const getSavedHostels = async (req, res) => {
+    try {
+        const hostels = await HostelService.getSavedHostels(req.user.id);
+        res.json({ success: true, hostels });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};

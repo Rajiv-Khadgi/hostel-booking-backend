@@ -9,11 +9,11 @@ const RoomModel = (sequelize) => {
             autoIncrement: true
         },
         room_type: {
-            type: DataTypes.ENUM('SINGLE','DOUBLE','TRIPLE','DORM'),
+            type: DataTypes.ENUM('SINGLE', 'DOUBLE', 'TRIPLE', 'DORM'),
             allowNull: false
         },
         price: {
-            type: DataTypes.DECIMAL(10,2),
+            type: DataTypes.DECIMAL(10, 2),
             allowNull: false
         },
         total_beds: {
@@ -25,7 +25,7 @@ const RoomModel = (sequelize) => {
             allowNull: false
         },
         status: {
-            type: DataTypes.ENUM('AVAILABLE','FULL','INACTIVE'),
+            type: DataTypes.ENUM('AVAILABLE', 'FULL', 'INACTIVE'),
             allowNull: false,
             defaultValue: 'AVAILABLE'
         },
@@ -44,7 +44,7 @@ const RoomModel = (sequelize) => {
         underscored: true
     });
 
-    
+
 
     return Room;
 };
