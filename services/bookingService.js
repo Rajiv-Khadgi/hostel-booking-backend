@@ -4,14 +4,8 @@ import { sendEmail } from './emailService.js';
 
 class BookingService {
 
-<<<<<<< HEAD
     // Date overlap condition (reusable)
 
-=======
-    /**
-     * Date overlap condition (reusable)
-     */
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
     _overlapCondition(start_date, end_date) {
         return {
             [Op.or]: [
@@ -27,14 +21,8 @@ class BookingService {
         };
     }
 
-<<<<<<< HEAD
     // Create a new booking request
 
-=======
-    /**
-     * Create a new booking request
-     */
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
     async create(data, userId) {
         // Fetch room & hostel & owner
         const room = await Room.findByPk(data.room_id, {
@@ -120,14 +108,8 @@ class BookingService {
         return booking;
     }
 
-<<<<<<< HEAD
     //Update booking status (Approve/Reject)
 
-=======
-    /**
-     * Update booking status (Approve/Reject)
-     */
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
     async updateStatus(bookingId, status, userId, userRole) {
         if (!['APPROVED', 'REJECTED'].includes(status)) {
             throw new Error('Invalid status');
@@ -164,19 +146,11 @@ class BookingService {
         // APPROVE
         if (status === 'APPROVED') {
             if (booking.room.available_beds <= 0) {
-<<<<<<< HEAD
                 throw new Error('No available beds');
             }
 
 
             // calculate availability dynamically
-=======
-                throw new Error('No available beds'); // Context: room capacity check might be strictly on room model in future
-            }
-
-            // Note: The original controller logic modified room.available_beds directly.
-            // A better approach would be to calculate availability dynamically, but following original logic for now:
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
             booking.room.available_beds -= 1;
 
             if (booking.room.available_beds === 0) {
@@ -205,14 +179,8 @@ class BookingService {
         return booking;
     }
 
-<<<<<<< HEAD
     // Get bookings based on user role
 
-=======
-    /**
-     * Get bookings based on user role
-     */
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
     async findAll(userId, userRole) {
         let whereClause = {};
 

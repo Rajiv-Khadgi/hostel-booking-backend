@@ -3,14 +3,8 @@ import { sendEmail } from './emailService.js';
 
 class VisitService {
 
-<<<<<<< HEAD
     // Schedule a new visit
 
-=======
-    /**
-     * Schedule a new visit
-     */
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
     async schedule(data, userId) {
         const hostel = await Hostel.findByPk(data.hostel_id, {
             include: { model: User, as: 'owner' }
@@ -61,14 +55,8 @@ class VisitService {
         return visit;
     }
 
-<<<<<<< HEAD
     // Update visit status (Approve/Reject)
 
-=======
-    /**
-     * Update visit status (Approve/Reject)
-     */
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
     async updateStatus(visitId, status, userId) {
         if (!['APPROVED', 'REJECTED'].includes(status)) {
             throw new Error('Invalid status');
@@ -113,14 +101,8 @@ class VisitService {
         return visit;
     }
 
-<<<<<<< HEAD
     // Get visits based on user role
 
-=======
-    /**
-     * Get visits based on user role
-     */
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
     async findAll(userId, userRole) {
         let whereClause = {};
 
@@ -129,13 +111,6 @@ class VisitService {
         }
 
         if (userRole === 'owner') {
-<<<<<<< HEAD
-=======
-            // This assumes logic: find all visits where the related hostel is owned by this user
-            // Sequelize can query nested associations, but sometimes simple ID matching is safer if aliases are tricky.
-            // The original controller used: whereClause['$hostel.user_id$'] = req.user.id;
-            // We can keep that or filter by IDs. Let's keep the efficient DB query method.
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
             whereClause['$hostel.user_id$'] = userId;
         }
 

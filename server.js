@@ -16,10 +16,6 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: '*', // Allow all origins for dev
-<<<<<<< HEAD
-        methods: ['GET', 'POST']
-    }
-=======
         methods: ['GET', 'POST'],
         credentials: false
     },
@@ -27,16 +23,12 @@ const io = new Server(server, {
     allowUpgrades: true,
     pingInterval: 25000,
     pingTimeout: 60000
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
 });
 
 // Socket Logic
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
-<<<<<<< HEAD
-=======
     console.log('Transport:', socket.conn.transport.name);
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
 
     // Join Conversation Room
     socket.on('join_conversation', (conversationId) => {
@@ -52,31 +44,21 @@ io.on('connection', (socket) => {
             // Save to DB
             const savedMessage = await ChatService.saveMessage(conversationId, senderId, content, attachmentUrl);
 
-<<<<<<< HEAD
-            // Emit to Room (including sender, get the DB ID/timestamp)
-            io.to(conversationId).emit('receive_message', savedMessage);
-        } catch (err) {
-            console.error('Socket message error:', err);
-=======
             // Emit to Room (including sender so they get the DB ID/timestamp)
             io.to(conversationId).emit('receive_message', savedMessage);
         } catch (err) {
             console.error('Socket message error:', err);
             socket.emit('error', { message: 'Failed to send message', error: err.message });
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
         }
     });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });
-<<<<<<< HEAD
-=======
 
     socket.on('error', (error) => {
         console.error('Socket error:', socket.id, error);
     });
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
 });
 
 
