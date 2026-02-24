@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
     secure: false,   // false for TLS
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS   
+        pass: process.env.EMAIL_PASS
     }
 });
 
@@ -38,7 +38,7 @@ export const sendEmail = async (to, subject, html) => {
 
 // Reset Password Email 
 export const sendResetEmail = async (email, token) => {
-    const resetLink = `http://localhost:3000/reset-password?token=${token}&email=${email}`;
+    const resetLink = `http://localhost:5173/reset-password?token=${token}&email=${email}`;
 
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
