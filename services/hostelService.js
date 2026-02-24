@@ -96,7 +96,7 @@ class HostelService {
         }
 
         // 4. Amenity Filter
-        
+
         if (amenities) {
             const amenityList = amenities.split(',');
             includeOptions.forEach(inc => {
@@ -117,12 +117,28 @@ class HostelService {
         return hostels;
     }
 
+    // Find my hostels (Owner Dashboard)
+    async findMyHostels(userId) {
+        return await Hostel.findAll({
+            where: { user_id: userId },
+            include: [
+                { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
+                { model: Room, as: 'rooms' }
+            ],
+            order: [['created_at', 'DESC']]
+        });
+    }
+
     // Find single hostel by ID
     async findById(id) {
         return await Hostel.findByPk(id, {
             include: [
                 { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'last_name'] },
-                { model: Room, as: 'rooms' },
+                {
+                    model: Room,
+                    as: 'rooms',
+                    include: [{ model: Image, as: 'images', where: { entity_type: 'ROOM' }, required: false }]
+                },
                 { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
                 { model: Amenity, as: 'amenities' },
                 {

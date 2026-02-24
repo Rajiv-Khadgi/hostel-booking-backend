@@ -77,6 +77,17 @@ export const getHostels = async (req, res) => {
     }
 };
 
+//  Get my hostels (Auth required)
+export const getMyHostels = async (req, res) => {
+    try {
+        const hostels = await HostelService.findMyHostels(req.user.id);
+        res.json({ success: true, hostels });
+    } catch (err) {
+        console.error('Get my hostels error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 //  Get single Hostel 
 export const getHostelById = async (req, res) => {
     try {
@@ -163,6 +174,67 @@ export const getSavedHostels = async (req, res) => {
     try {
         const hostels = await HostelService.getSavedHostels(req.user.id);
         res.json({ success: true, hostels });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Upload Hostel Images
+export const uploadHostelImages = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const hostel = await HostelService.findById(id);
+        if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
+
+        if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No images uploaded' });
+        }
+
+        const { Image } = await import('../config/database.js');
+
+        const imagesToSave = req.files.map(file => ({
+            image_url: `/uploads/properties/${file.filename}`,
+            entity_type: 'HOSTEL',
+            entity_id: id,
+            is_cover: false // Default
+        }));
+
+        await Image.bulkCreate(imagesToSave);
+
+        // Return updated images list
+        const updatedImages = await Image.findAll({ where: { entity_type: 'HOSTEL', entity_id: id } });
+
+        res.json({ success: true, message: 'Images uploaded successfully', images: updatedImages });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Delete Hostel Image
+export const deleteHostelImage = async (req, res) => {
+    try {
+        const { id, imageId } = req.params;
+        const hostel = await HostelService.findById(id);
+        if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
+
+        if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        const { Image } = await import('../config/database.js');
+        const image = await Image.findOne({ where: { image_id: imageId, entity_id: id, entity_type: 'HOSTEL' } });
+
+        if (!image) return res.status(404).json({ error: 'Image not found' });
+
+        // Optionally, delete from filesystem here if desired using fs.unlink
+
+        await image.destroy();
+
+        res.json({ success: true, message: 'Image deleted successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
