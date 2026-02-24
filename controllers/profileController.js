@@ -31,7 +31,7 @@ export const getProfile = async (req, res) => {
 // Update Profile
 export const updateProfile = async (req, res) => {
     try {
-        const { first_name, last_name, phone } = req.body;
+        const { first_name, last_name, phone, dob, gender, institute, recommendations } = req.body;
         const userId = req.user.id;
 
         const user = await User.findByPk(userId);
@@ -41,6 +41,10 @@ export const updateProfile = async (req, res) => {
         if (first_name) updateData.first_name = first_name;
         if (last_name) updateData.last_name = last_name;
         if (phone) updateData.phone = phone;
+        if (dob !== undefined) updateData.dob = dob;
+        if (gender !== undefined) updateData.gender = gender;
+        if (institute !== undefined) updateData.institute = institute;
+        if (recommendations !== undefined) updateData.recommendations = recommendations;
 
         // Handle Image Upload
         if (req.file) {

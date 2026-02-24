@@ -56,6 +56,22 @@ const UserModel = (sequelize) => {
         password_reset_expires: {
             type: DataTypes.DATE,
             allowNull: true
+        },
+        dob: {
+            type: DataTypes.DATEONLY,
+            allowNull: true
+        },
+        gender: {
+            type: DataTypes.ENUM('male', 'female', 'other'),
+            allowNull: true
+        },
+        institute: {
+            type: DataTypes.STRING(100),
+            allowNull: true
+        },
+        recommendations: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     }, {
         tableName: 'users',

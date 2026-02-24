@@ -43,7 +43,12 @@ export const registerStudent = async (req, res) => {
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                profile_image: user.profile_image,
+                dob: user.dob,
+                gender: user.gender,
+                institute: user.institute,
+                recommendations: user.recommendations
             },
             accessToken
         });
@@ -88,7 +93,12 @@ export const registerOwner = async (req, res) => {
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                profile_image: user.profile_image,
+                dob: user.dob,
+                gender: user.gender,
+                institute: user.institute,
+                recommendations: user.recommendations
             },
             accessToken
         });
@@ -139,7 +149,12 @@ export const login = async (req, res) => {
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                profile_image: user.profile_image,
+                dob: user.dob,
+                gender: user.gender,
+                institute: user.institute,
+                recommendations: user.recommendations
             },
             accessToken
         });
