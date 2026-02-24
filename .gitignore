@@ -1,7 +1,4 @@
 .env
-<<<<<<< HEAD
 /scripts
-=======
-scripts/
-Minimal Frontend/
->>>>>>> 60d87c29688a7fd67b5a6b7041b34e594db79ce1
+/uploads
+

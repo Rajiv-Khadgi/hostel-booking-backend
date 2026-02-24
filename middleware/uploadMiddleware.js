@@ -53,5 +53,24 @@ export const uploadChatFile = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit for docs
 });
 
+// Property images (hostels, rooms) - allowing slightly larger files (5MB)
+export const uploadPropertyImage = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            const propDir = 'uploads/properties';
+            if (!fs.existsSync(propDir)) {
+                fs.mkdirSync(propDir, { recursive: true });
+            }
+            cb(null, propDir);
+        },
+        filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            cb(null, 'property-' + uniqueSuffix + path.extname(file.originalname));
+        }
+    }),
+    fileFilter: imageFilter,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
 // Default export(image upload)
 export default uploadImage;
