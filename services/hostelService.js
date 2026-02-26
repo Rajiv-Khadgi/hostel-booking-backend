@@ -193,6 +193,7 @@ class HostelService {
             include: [
                 {
                     model: Hostel,
+                    as: 'hostel',
                     include: [
                         { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
                         { model: Room, as: 'rooms', attributes: ['price'] } // To show "Starts from" price
@@ -203,7 +204,7 @@ class HostelService {
 
         // Transform for cleaner frontend consumption 
         return saved.map(s => {
-            const h = s.Hostel;
+            const h = s.hostel;
             const prices = h.rooms.map(r => r.price);
             const minPrice = prices.length ? Math.min(...prices) : null;
 
