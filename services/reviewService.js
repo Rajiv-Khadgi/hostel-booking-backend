@@ -48,7 +48,7 @@ class ReviewService {
                 {
                     model: User,
                     as: 'reviewer',
-                    attributes: ['first_name', 'last_name']
+                    attributes: ['first_name', 'last_name', 'profile_image']
                 }
             ],
             order: [['created_at', 'DESC']]

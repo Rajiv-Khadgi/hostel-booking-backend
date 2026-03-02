@@ -14,17 +14,22 @@ class VisitService {
             throw new Error('Hostel not found');
         }
 
-        // Prevent duplicate pending visit
-        const existingVisit = await Visit.findOne({
+        // Only students can schedule visits
+        if (userId === hostel.user_id) {
+            throw new Error('Owners cannot schedule visits to their own hostels');
+        }
+
+        // Prevent duplicate active visit (PENDING or APPROVED)
+        const activeVisit = await Visit.findOne({
             where: {
                 user_id: userId,
                 hostel_id: data.hostel_id,
-                status: 'REQUESTED'
+                status: ['REQUESTED', 'APPROVED']
             }
         });
 
-        if (existingVisit) {
-            throw new Error('You already have a pending visit request for this hostel');
+        if (activeVisit) {
+            throw new Error('You already have an active visit request for this hostel');
         }
 
         const student = await User.findByPk(userId, {
