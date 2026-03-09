@@ -51,7 +51,7 @@ export const uploadFile = async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
         // Generate URL (Ensure static folder is served)
-        const fileUrl = `/uploads/${req.file.filename}`;
+        const fileUrl = `/uploads/chat/${req.file.filename}`;
         res.json({ success: true, fileUrl });
     } catch (err) {
         res.status(500).json({ error: err.message });
