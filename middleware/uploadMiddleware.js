@@ -41,6 +41,36 @@ const chatFileFilter = (req, file, cb) => {
     }
 };
 
+// Property images (hostels, rooms)
+const propertyStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const propDir = 'uploads/properties';
+        if (!fs.existsSync(propDir)) {
+            fs.mkdirSync(propDir, { recursive: true });
+        }
+        cb(null, propDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'property-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+// Chat attachments storage
+const chatStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const chatDir = 'uploads/chat';
+        if (!fs.existsSync(chatDir)) {
+            fs.mkdirSync(chatDir, { recursive: true });
+        }
+        cb(null, chatDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'chat-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
 export const uploadImage = multer({
     storage,
     fileFilter: imageFilter,
@@ -48,26 +78,13 @@ export const uploadImage = multer({
 });
 
 export const uploadChatFile = multer({
-    storage,
+    storage: chatStorage,
     fileFilter: chatFileFilter,
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit for docs
 });
 
-// Property images (hostels, rooms) - allowing slightly larger files (5MB)
 export const uploadPropertyImage = multer({
-    storage: multer.diskStorage({
-        destination: (req, file, cb) => {
-            const propDir = 'uploads/properties';
-            if (!fs.existsSync(propDir)) {
-                fs.mkdirSync(propDir, { recursive: true });
-            }
-            cb(null, propDir);
-        },
-        filename: (req, file, cb) => {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            cb(null, 'property-' + uniqueSuffix + path.extname(file.originalname));
-        }
-    }),
+    storage: propertyStorage,
     fileFilter: imageFilter,
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });

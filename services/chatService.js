@@ -79,6 +79,20 @@ class ChatService {
             include: [{ model: User, as: 'sender', attributes: ['user_id', 'first_name', 'last_name', 'profile_image'] }]
         });
     }
+
+    // Mark messages as read
+    async markMessagesAsRead(conversationId, userId) {
+        return await Message.update(
+            { is_read: true },
+            {
+                where: {
+                    conversation_id: conversationId,
+                    sender_id: { [Op.ne]: userId },
+                    is_read: false
+                }
+            }
+        );
+    }
 }
 
 export default new ChatService();

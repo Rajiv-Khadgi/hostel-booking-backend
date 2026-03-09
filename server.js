@@ -25,10 +25,20 @@ const io = new Server(server, {
     pingTimeout: 60000
 });
 
+// Online User Tracking
+const onlineUsers = new Map(); // userId -> socketId
+
 // Socket Logic
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
     console.log('Transport:', socket.conn.transport.name);
+
+    // Identify User
+    socket.on('identify', (userId) => {
+        onlineUsers.set(userId, socket.id);
+        io.emit('user_status_change', { userId, status: 'online' });
+        console.log(`User ${userId} identified with socket ${socket.id}`);
+    });
 
     // Join Conversation Room
     socket.on('join_conversation', (conversationId) => {
@@ -52,7 +62,32 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Handle Mark Read
+    socket.on('mark_read', async (data) => {
+        try {
+            const { conversationId, userId } = data;
+            await ChatService.markMessagesAsRead(conversationId, userId);
+
+            // Notify other participants in the room
+            io.to(conversationId).emit('messages_read', { conversationId, readerId: userId });
+        } catch (err) {
+            console.error('Socket mark_read error:', err);
+        }
+    });
+
     socket.on('disconnect', () => {
+        let disconnectedUserId = null;
+        for (let [userId, socketId] of onlineUsers.entries()) {
+            if (socketId === socket.id) {
+                disconnectedUserId = userId;
+                onlineUsers.delete(userId);
+                break;
+            }
+        }
+
+        if (disconnectedUserId) {
+            io.emit('user_status_change', { userId: disconnectedUserId, status: 'offline' });
+        }
         console.log('User disconnected:', socket.id);
     });
 
