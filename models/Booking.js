@@ -37,11 +37,21 @@ const BookingModel = (sequelize) => {
             type: DataTypes.ENUM(
                 'REQUESTED',
                 'APPROVED',
+                'CONFIRMED',
                 'REJECTED',
                 'CANCELLED',
                 'COMPLETED'
             ),
             defaultValue: 'REQUESTED'
+        },
+
+        payment_status: {
+            type: DataTypes.ENUM(
+                'UNPAID',
+                'PARTIAL',
+                'PAID'
+            ),
+            defaultValue: 'UNPAID'
         }
 
     }, {

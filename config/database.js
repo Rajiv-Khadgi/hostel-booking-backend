@@ -25,6 +25,7 @@ export const sequelize = new Sequelize(
 import SavedHostelModel from '../models/SavedHostel.js';
 import ConversationModel from '../models/Conversation.js';
 import MessageModel from '../models/Message.js';
+import PaymentModel from '../models/Payment.js';
 
 // Initialize Models
 export const User = UserModel(sequelize);
@@ -39,6 +40,7 @@ export const Visit = VisitModel(sequelize);
 export const SavedHostel = SavedHostelModel(sequelize);
 export const Conversation = ConversationModel(sequelize);
 export const Message = MessageModel(sequelize);
+export const Payment = PaymentModel(sequelize);
 
 
 // Associations
@@ -118,6 +120,10 @@ Conversation.hasMany(Message, { foreignKey: 'conversation_id', as: 'messages' })
 Message.belongsTo(Conversation, { foreignKey: 'conversation_id' });
 
 Message.belongsTo(User, { as: 'sender', foreignKey: 'sender_id' });
+ 
+// Payments
+Booking.hasMany(Payment, { foreignKey: 'booking_id', as: 'payments' });
+Payment.belongsTo(Booking, { foreignKey: 'booking_id' });
 
 
 export const initDB = async () => {
