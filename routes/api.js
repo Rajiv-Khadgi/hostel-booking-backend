@@ -20,6 +20,7 @@ import roomRoutes from './roomRoutes.js';
 import chatRoutes from './chatRoutes.js';
 import profileRoutes from './profileRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
 
 import { authenticate } from '../middleware/authMiddleware.js';
 
@@ -58,6 +59,8 @@ router.use('/visits', visitRoutes);
 
 // Chat
 router.use('/chat', chatRoutes); // Added route
+// Payments
+router.use('/payments', paymentRoutes);
 // Reviews
 router.use('/', reviewRoutes);
 
