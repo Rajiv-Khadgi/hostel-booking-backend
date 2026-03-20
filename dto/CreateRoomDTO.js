@@ -3,6 +3,7 @@ import * as yup from 'yup';
 const roomSchema = yup.object({
     hostel_id: yup.number().required('Hostel is required'),
     room_type: yup.string().oneOf(['SINGLE','DOUBLE','TRIPLE','DORM']).required('Room type is required'),
+    room_number: yup.string().required('Room number is required'),
     price: yup.number().required('Price is required').positive(),
     total_beds: yup.number().required('Total beds is required').min(1),
 });

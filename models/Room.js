@@ -12,6 +12,10 @@ const RoomModel = (sequelize) => {
             type: DataTypes.ENUM('SINGLE', 'DOUBLE', 'TRIPLE', 'DORM'),
             allowNull: false
         },
+        room_number: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
         price: {
             type: DataTypes.DECIMAL(10, 2),
             allowNull: false

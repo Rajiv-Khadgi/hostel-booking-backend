@@ -35,15 +35,27 @@ io.on('connection', (socket) => {
 
     // Identify User
     socket.on('identify', (userId) => {
+        socket.userId = userId;
         onlineUsers.set(userId, socket.id);
         io.emit('user_status_change', { userId, status: 'online' });
         console.log(`User ${userId} identified with socket ${socket.id}`);
     });
 
     // Join Conversation Room
-    socket.on('join_conversation', (conversationId) => {
-        socket.join(conversationId);
-        console.log(`User ${socket.id} joined conversation ${conversationId}`);
+    socket.on('join_conversation', async (conversationId) => {
+        if (!socket.userId) return;
+
+        try {
+            const isParticipant = await ChatService.isParticipant(conversationId, socket.userId);
+            if (!isParticipant) {
+                console.warn(`Unauthorized join attempt from ${socket.userId} for room ${conversationId}`);
+                return;
+            }
+            socket.join(conversationId);
+            console.log(`User ${socket.id} joined conversation ${conversationId}`);
+        } catch (err) {
+            console.error('Join room error:', err);
+        }
     });
 
     // Handle Send Message

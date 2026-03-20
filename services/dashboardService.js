@@ -1,4 +1,4 @@
-import { sequelize, User, Hostel, Room, Booking, Visit, SavedHostel } from '../config/database.js';
+import { sequelize, User, Hostel, Room, Booking, Visit, SavedHostel, Payment } from '../config/database.js';
 import { Op } from 'sequelize';
 
 class DashboardService {
@@ -40,7 +40,16 @@ class DashboardService {
                 date: upcomingVisit.visit_date,
                 hostel: upcomingVisit.hostel.name
             } : null,
-            total_spend: 0,
+            total_spend: await Payment.sum('amount', {
+                where: {
+                    status: 'COMPLETED'
+                },
+                include: [{
+                    model: Booking,
+                    where: { user_id: userId },
+                    attributes: []
+                }]
+            }) || 0,
             saved_hostels: await SavedHostel.count({ where: { user_id: userId } })
         };
     }
@@ -118,7 +127,18 @@ class DashboardService {
             total_hostels: totalHostels,
             active_students: activeBookingsCount,
             occupancy_rate: occupancyRate,
-            total_earnings: 0, // Placeholder
+            total_earnings: await Payment.sum('amount', {
+                where: { status: 'COMPLETED' },
+                include: [{
+                    model: Booking,
+                    include: [{
+                        model: Room,
+                        where: { hostel_id: { [Op.in]: hostelIds } },
+                        attributes: []
+                    }],
+                    attributes: []
+                }]
+            }) || 0,
             pending_actions: pendingBookingReqs + pendingVisitReqs
         };
     }

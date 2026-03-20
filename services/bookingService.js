@@ -93,14 +93,15 @@ class BookingService {
         });
 
         // Notify hostel owner
+        // Notify hostel owner
         await sendEmail(
             room.hostel.owner.email,
             'New Booking Request',
             `
                 <h3>New Booking Request</h3>
                 <p><b>Hostel:</b> ${room.hostel.name}</p>
-                <p><b>Room ID:</b> ${room.room_id}</p>
-                <p><b>Student ID:</b> ${userId}</p>
+                <p><b>Room Number:</b> ${room.room_number || room.room_id}</p>
+                <p><b>Student:</b> ${req.user.first_name} ${req.user.last_name}</p>
                 <p><b>Duration:</b> ${data.start_date} → ${data.end_date}</p>
             `
         );
@@ -170,7 +171,7 @@ class BookingService {
             student.email,
             `Booking ${status}`,
             `
-                <p>Your booking for room <b>${booking.room.room_id}</b> 
+                <p>Your booking for room <b>${booking.room.room_number || booking.room.room_id}</b> 
                 in hostel <b>${booking.room.hostel.name}</b> has been 
                 <b>${status.toLowerCase()}</b>.</p>
             `

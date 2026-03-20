@@ -28,7 +28,7 @@ class ChatService {
 
     // Get User Conversations
     async getUserConversations(userId) {
-        return await Conversation.findAll({
+        const conversations = await Conversation.findAll({
             where: {
                 [Op.or]: [
                     { participant1_id: userId },
@@ -47,6 +47,30 @@ class ChatService {
             ],
             order: [['last_message_at', 'DESC']]
         });
+
+        // Add unread count for each conversation
+        const enrichedConversations = await Promise.all(conversations.map(async (conv) => {
+            const unreadCount = await Message.count({
+                where: {
+                    conversation_id: conv.conversation_id,
+                    sender_id: { [Op.ne]: userId },
+                    is_read: false
+                }
+            });
+            // Plain object to add custom property
+            const plain = conv.get({ plain: true });
+            plain.unreadCount = unreadCount;
+            return plain;
+        }));
+
+        return enrichedConversations;
+    }
+
+    // Check if user is participant
+    async isParticipant(conversationId, userId) {
+        const conversation = await Conversation.findByPk(conversationId);
+        if (!conversation) return false;
+        return conversation.participant1_id === userId || conversation.participant2_id === userId;
     }
 
     // Get Messages in Conversation
