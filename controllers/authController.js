@@ -24,6 +24,7 @@ export const registerStudent = async (req, res) => {
         const hashedPassword = await bcrypt.hash(userData.password, 12);
         const user = await User.create({
             first_name: userData.first_name,
+            middle_name: userData.middle_name,
             last_name: userData.last_name,
             email: userData.email,
             password_hash: hashedPassword,
@@ -41,6 +42,7 @@ export const registerStudent = async (req, res) => {
             user: {
                 id: user.user_id,
                 first_name: user.first_name,
+                middle_name: user.middle_name,
                 last_name: user.last_name,
                 email: user.email,
                 role: user.role,
@@ -75,6 +77,7 @@ export const registerOwner = async (req, res) => {
         const hashedPassword = await bcrypt.hash(userData.password, 12);
         const user = await User.create({
             first_name: userData.first_name,
+            middle_name: userData.middle_name,
             last_name: userData.last_name,
             email: userData.email,
             password_hash: hashedPassword,
@@ -92,6 +95,7 @@ export const registerOwner = async (req, res) => {
             user: {
                 id: user.user_id,
                 first_name: user.first_name,
+                middle_name: user.middle_name,
                 last_name: user.last_name,
                 email: user.email,
                 role: user.role,
@@ -149,6 +153,7 @@ export const login = async (req, res) => {
             user: {
                 id: user.user_id,
                 first_name: user.first_name,
+                middle_name: user.middle_name,
                 last_name: user.last_name,
                 email: user.email,
                 role: user.role,

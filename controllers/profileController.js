@@ -31,7 +31,7 @@ export const getProfile = async (req, res) => {
 // Update Profile
 export const updateProfile = async (req, res) => {
     try {
-        const { first_name, last_name, phone, dob, gender, institute, recommendations } = req.body;
+        const { first_name, middle_name, last_name, phone, dob, gender, institute, recommendations } = req.body;
         const userId = req.user.id;
 
         const user = await User.findByPk(userId);
@@ -39,6 +39,7 @@ export const updateProfile = async (req, res) => {
 
         let updateData = {};
         if (first_name) updateData.first_name = first_name;
+        if (middle_name !== undefined) updateData.middle_name = middle_name;
         if (last_name) updateData.last_name = last_name;
         if (phone) updateData.phone = phone;
         if (dob !== undefined) updateData.dob = dob;
