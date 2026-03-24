@@ -11,69 +11,70 @@ class PaymentService {
         this.DEPOSIT_AMOUNT = process.env.BOOKING_DEPOSIT_AMOUNT ? parseInt(process.env.BOOKING_DEPOSIT_AMOUNT) : 1000;
     }
 
-    async initiatePayment(bookingId, paymentType) {
-        // 1. Fetch Booking and amount
+    async initiatePayment(bookingId, paymentType, amount, months) {
         const booking = await Booking.findByPk(bookingId, {
-            include: [
-                { model: Room, as: 'room' },
-                { model: User, as: 'student' }
-            ]
+            include: [{ model: Room, as: 'room' }, { model: User, as: 'student' }]
         });
 
         if (!booking) throw new Error('Booking not found');
-        if (booking.status !== 'APPROVED') throw new Error('Booking must be approved before payment');
-        if (booking.payment_status === 'PAID') throw new Error('Booking is already fully paid');
-
-        // Edge Case: Prevent initiates if user already has a CONFIRMED booking
-        const existingConfirmedBooking = await Booking.findOne({
-            where: {
-                user_id: booking.user_id,
-                status: 'CONFIRMED'
-            }
-        });
         
-        if (existingConfirmedBooking) {
-            throw new Error('You already have a confirmed booking. Please cancel it before paying for a new one.');
+        if (!['APPROVED', 'CONFIRMED'].includes(booking.status)) {
+            throw new Error(`Payment not allowed for status: ${booking.status}`);
         }
+        
+        if (booking.payment_status === 'PAID') throw new Error('Already fully paid');
 
-        // Edge Case: Prevent duplicate initiation (Idempotency)
-        const pendingPayment = await Payment.findOne({
-            where: {
-                booking_id: bookingId,
-                status: 'PENDING'
-            }
-        });
+        const type = paymentType.toUpperCase();
+        const totalCost = booking.months * booking.room.price;
+        const totalPaid = (await Payment.sum('amount', { where: { booking_id: bookingId, status: 'COMPLETED' } })) || 0;
+        const balance = Math.max(0, totalCost - totalPaid);
 
-        // If a pending payment exists, and it's less than 15 minutes old, return the existing URL
-        // Khalti transactions often expire after some time.
-        if (pendingPayment) {
-            const timeDiff = new Date() - new Date(pendingPayment.createdAt);
-            if (timeDiff < 15 * 60 * 1000) { 
-                return { payment_url: `https://test-pay.khalti.com/?pidx=${pendingPayment.pidx}`, pidx: pendingPayment.pidx, message: "Resuming existing payment session" };
-            } else {
-                // If old, mark as FAILED to allow a new attempt
-                await pendingPayment.update({ status: 'FAILED', metadata: { error: 'Session expired before completion' } });
-            }
-        }
+        if (balance <= 0) throw new Error('Booking already fully paid');
 
         let amountNRS = 0;
-        if (paymentType === 'FULL') {
-            amountNRS = booking.months * booking.room.price;
-        } else if (paymentType === 'DEPOSIT') {
-            amountNRS = this.DEPOSIT_AMOUNT; // Flexible deposit amount
+        if (type === 'FULL' || type === 'BALANCE') {
+            amountNRS = balance;
+        } else if (type === 'DEPOSIT') {
+            if (totalPaid > 0) throw new Error('Deposit can only be paid first');
+            amountNRS = amount ? parseFloat(amount) : this.DEPOSIT_AMOUNT;
+            const min = Math.floor(totalCost * 0.1);
+            if (amountNRS < min) throw new Error(`Minimum deposit is Rs. ${min}`);
+        } else if (type === 'MONTHLY') {
+            const calculated = (months ? parseInt(months) : 1) * booking.room.price;
+            amountNRS = Math.min(calculated, balance);
         } else {
             throw new Error('Invalid payment type');
         }
 
-        const amountPaisa = amountNRS * 100;
+        // Final cap: Never exceed balance
+        if (amountNRS > balance + 0.01) {
+             throw new Error(`Amount (Rs. ${amountNRS}) exceeds remaining balance (Rs. ${balance})`);
+        }
+        amountNRS = Math.min(amountNRS, balance);
+        
+        const amountPaisa = Math.round(amountNRS * 100);
 
-        // 2. Prepare Khalti Request
+        // Idempotency: Resume ONLY if amount matches
+        const pending = await Payment.findOne({
+            where: { booking_id: bookingId, status: 'PENDING', payment_type: type }
+        });
+
+        if (pending) {
+            const age = new Date() - new Date(pending.createdAt);
+            const isSameAmount = Math.abs(parseFloat(pending.amount) - amountNRS) < 0.01;
+            
+            if (age < 15 * 60 * 1000 && pending.payment_url && isSameAmount) {
+                return { payment_url: pending.payment_url, pidx: pending.pidx, message: "Resuming session" };
+            }
+            await pending.update({ status: 'FAILED', metadata: { ...pending.metadata, reason: 'Amount changed or session stale' } });
+        }
+
         const payload = {
             return_url: `${this.frontendUrl}/payment/callback`,
             website_url: this.frontendUrl,
             amount: amountPaisa,
             purchase_order_id: booking.booking_id.toString(),
-            purchase_order_name: `Booking for ${booking.room.room_number}`,
+            purchase_order_name: `Room ${booking.room.room_number}`,
             customer_info: {
                 name: `${booking.student.first_name} ${booking.student.last_name}`,
                 email: booking.student.email,
@@ -81,116 +82,152 @@ class PaymentService {
             }
         };
 
-        const config = {
-            headers: {
-                Authorization: `Key ${this.secretKey}`,
-                'Content-Type': 'application/json'
-            }
-        };
-
         try {
-            const response = await axios.post(this.initUrl, payload, config);
-            const { pidx, payment_url } = response.data;
-
-            // 3. Create Pending Payment Record
-            await Payment.create({
-                booking_id: bookingId,
-                amount: amountNRS,
-                payment_type: paymentType,
-                pidx: pidx,
-                status: 'PENDING'
+            const res = await axios.post(this.initUrl, payload, { 
+                headers: { Authorization: `Key ${this.secretKey}`, 'Content-Type': 'application/json' } 
             });
-
-            return { payment_url, pidx };
-        } catch (error) {
-            console.error('Khalti Initiation Error:', error.response?.data || error.message);
-            throw new Error('Failed to initiate payment with Khalti');
+            await Payment.create({
+                booking_id: bookingId, amount: amountNRS, payment_type: type,
+                pidx: res.data.pidx, payment_url: res.data.payment_url, status: 'PENDING',
+                metadata: { requested_months: months, requested_at: new Date() }
+            });
+            return { payment_url: res.data.payment_url, pidx: res.data.pidx };
+        } catch (err) {
+            console.error('Khalti Init Error:', err.response?.data || err.message);
+            throw new Error('Failed to initiate payment');
         }
     }
 
     async verifyPayment(pidx) {
-        const config = {
-            headers: {
-                Authorization: `Key ${this.secretKey}`,
-                'Content-Type': 'application/json'
-            }
-        };
-
         try {
-            // 1. Find local payment record
-            const payment = await Payment.findOne({ where: { pidx } });
-            if (!payment) throw new Error('Payment record not found');
-            
-            // If already completed, don't re-process
-            if (payment.status === 'COMPLETED') {
-                return { success: true, message: 'Payment already verified' };
-            }
-            if (payment.status === 'FAILED') {
-                throw new Error('This payment has already failed. Please initiate a new one.');
-            }
+            const payment = await Payment.findOne({ 
+                where: { pidx },
+                include: [{ model: Booking, as: 'booking', include: [{ model: Room, as: 'room' }] }]
+            });
+            if (!payment || !payment.booking) throw new Error('Payment/Booking record not found');
 
-            // 2. Lookup payment in Khalti
-            const response = await axios.post(this.verifyUrl, { pidx }, config);
-            const khaltiData = response.data;
+            if (payment.status === 'COMPLETED') return { success: true, message: 'Already verified' };
+            if (payment.status === 'FAILED') throw new Error('Payment already failed');
 
-            if (khaltiData.status === 'Completed') {
-                // 3. Amount Validation (Khalti amount is in paisa)
-                const expectedAmountPaisa = payment.amount * 100;
-                if (parseInt(khaltiData.total_amount) !== parseInt(expectedAmountPaisa)) {
-                    await payment.update({ status: 'FAILED', metadata: { ...khaltiData, error: 'Amount mismatch' } });
-                    return { success: false, message: 'Payment amount mismatch' };
+            const response = await axios.post(this.verifyUrl, { pidx }, {
+                headers: { Authorization: `Key ${this.secretKey}`, 'Content-Type': 'application/json' }
+            });
+
+            if (response.data.status === 'Completed') {
+                if (parseInt(response.data.total_amount) !== Math.round(payment.amount * 100)) {
+                    await payment.update({ status: 'FAILED', metadata: { ...response.data, error: 'Amount mismatch' } });
+                    return { success: false, message: 'Amount mismatch' };
                 }
 
-                // 4. Update Payment record
-                await payment.update({
-                    status: 'COMPLETED',
-                    transaction_id: khaltiData.transaction_id,
-                    metadata: khaltiData
-                });
+                await payment.update({ status: 'COMPLETED', transaction_id: response.data.transaction_id, metadata: response.data });
 
-                // 5. Update Booking record
-                const booking = await Booking.findByPk(payment.booking_id);
-                const newPaymentStatus = payment.payment_type === 'FULL' ? 'PAID' : 'PARTIAL';
-                
+                const booking = payment.booking;
+                const total = booking.months * booking.room.price;
+                const paid = await Payment.sum('amount', { where: { booking_id: booking.booking_id, status: 'COMPLETED' } }) || 0;
+
                 await booking.update({
                     status: 'CONFIRMED',
-                    payment_status: newPaymentStatus
+                    payment_status: paid >= total ? 'PAID' : 'PARTIAL'
                 });
 
-                // 6. Edge Case Handling: Cancel other REQUESTED/APPROVED bookings for this user
-                // and restore bed capacity for APPROVED ones
-                const competingBookings = await Booking.findAll({
-                    where: {
-                        user_id: booking.user_id,
-                        booking_id: { [Op.ne]: booking.booking_id },
-                        status: { [Op.in]: ['REQUESTED', 'APPROVED'] }
-                    },
+                const competing = await Booking.findAll({
+                    where: { user_id: booking.user_id, booking_id: { [Op.ne]: booking.booking_id }, status: { [Op.in]: ['REQUESTED', 'APPROVED'] } },
                     include: [{ model: Room, as: 'room' }]
                 });
 
-                for (let compBooking of competingBookings) {
-                    // If it was APPROVED, it was holding a bed. We must return it.
-                    if (compBooking.status === 'APPROVED') {
-                        compBooking.room.available_beds += 1;
-                        if (compBooking.room.status === 'FULL') {
-                            compBooking.room.status = 'AVAILABLE';
-                        }
-                        await compBooking.room.save();
+                for (let comp of competing) {
+                    if (comp.status === 'APPROVED') {
+                        comp.room.available_beds += 1;
+                        if (comp.room.status === 'FULL') comp.room.status = 'AVAILABLE';
+                        await comp.room.save();
                     }
-                    compBooking.status = 'CANCELLED';
-                    await compBooking.save();
+                    await comp.update({ status: 'CANCELLED' });
                 }
-
-
-                return { success: true, message: 'Payment verified and booking confirmed' };
-            } else {
-                await payment.update({ status: 'FAILED', metadata: khaltiData });
-                return { success: false, message: `Payment status: ${khaltiData.status}` };
+                return { success: true, message: 'Verified and Confirmed' };
             }
+            
+            await payment.update({ status: 'FAILED', metadata: response.data });
+            return { success: false, message: 'Khalti payment not completed' };
         } catch (error) {
-            console.error('Khalti Verification Error:', error.response?.data || error.message);
-            throw new Error('Failed to verify payment with Khalti');
+            console.error('Verification Error:', error.response?.data || error.message);
+            throw new Error('Verification failed');
         }
+    }
+
+    async expireOldBookings() {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const expired = await Booking.findAll({
+            where: {
+                status: 'APPROVED',
+                updatedAt: { [Op.lt]: twentyFourHoursAgo }
+            },
+            include: [{ model: Room, as: 'room' }]
+        });
+
+        for (let booking of expired) {
+            const payments = await Payment.count({ where: { booking_id: booking.booking_id, status: 'COMPLETED' } });
+            if (payments === 0) {
+                booking.room.available_beds += 1;
+                if (booking.room.status === 'FULL') booking.room.status = 'AVAILABLE';
+                await booking.room.save();
+                await booking.update({ status: 'CANCELLED', metadata: { ...booking.metadata, reason: 'Auto-expired: Deposit not paid within 24h' } });
+            }
+        }
+    }
+
+    async getStudentPayments(userId) {
+        await this.expireOldBookings();
+        return await Payment.findAll({
+            include: [{
+                model: Booking,
+                as: 'booking',
+                where: { user_id: userId },
+                include: [{ model: Room, as: 'room', include: [{ model: Hostel, as: 'hostel' }] }]
+            }],
+            order: [['createdAt', 'DESC']]
+        });
+    }
+
+    async getOwnerPayments(ownerId) {
+        await this.expireOldBookings();
+        return await Payment.findAll({
+            include: [{
+                model: Booking,
+                as: 'booking',
+                include: [{
+                    model: Room,
+                    as: 'room',
+                    include: [{
+                        model: Hostel,
+                        as: 'hostel',
+                        where: { user_id: ownerId }
+                    }]
+                }, {
+                    model: User,
+                    as: 'student'
+                }]
+            }],
+            order: [['createdAt', 'DESC']]
+        });
+    }
+
+    async getAllPayments() {
+        await this.expireOldBookings();
+        return await Payment.findAll({
+            include: [{
+                model: Booking,
+                as: 'booking',
+                include: [{
+                    model: Room,
+                    as: 'room',
+                    include: [{ model: Hostel, as: 'hostel' }]
+                }, {
+                    model: User,
+                    as: 'student'
+                }]
+            }],
+            order: [['createdAt', 'DESC']]
+        });
     }
 }
 

@@ -3,7 +3,10 @@ import { authenticate } from '../middleware/authMiddleware.js';
 import { 
     initiateKhaltiPayment, 
     verifyKhaltiPayment,
-    getPaymentStatus
+    getPaymentStatus,
+    getStudentPayments,
+    getOwnerPayments,
+    getAllPayments
 } from '../controllers/paymentController.js';
 
 const router = express.Router();
@@ -17,5 +20,10 @@ router.get('/verify', verifyKhaltiPayment);
 
 // Get Status by PIDX
 router.get('/status/:pidx', authenticate, getPaymentStatus);
+
+// History Routes
+router.get('/history/student', authenticate, getStudentPayments);
+router.get('/history/owner', authenticate, getOwnerPayments);
+router.get('/history/admin', authenticate, getAllPayments);
 
 export default router;

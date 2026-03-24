@@ -1,10 +1,8 @@
-import { Booking, Room, Hostel, User } from '../config/database.js';
+import { Booking, Room, Hostel, User, Payment } from '../config/database.js';
 import { Op } from 'sequelize';
 import { sendEmail } from './emailService.js';
 
 class BookingService {
-
-    // Date overlap condition (reusable)
 
     _overlapCondition(start_date, end_date) {
         return {
@@ -21,10 +19,7 @@ class BookingService {
         };
     }
 
-    // Create a new booking request
-
     async create(data, userId) {
-        // Fetch room & hostel & owner
         const room = await Room.findByPk(data.room_id, {
             include: {
                 model: Hostel,
@@ -33,29 +28,19 @@ class BookingService {
             }
         });
 
-        if (!room) {
-            throw new Error('Room not found');
-        }
+        if (!room) throw new Error('Room not found');
 
-        // Prevent multiple bookings in the same hostel
         const existingBookingInHostel = await Booking.findOne({
-            where: {
-                user_id: userId,
-                status: 'REQUESTED', // Only pending bookings
-            },
+            where: { user_id: userId, status: 'REQUESTED' },
             include: {
                 model: Room,
                 as: 'room',
-                where: { hostel_id: room.hostel_id } // same hostel
+                where: { hostel_id: room.hostel_id }
             }
         });
 
-        if (existingBookingInHostel) {
-            throw new Error('You already have a pending booking request in this hostel.');
-        };
+        if (existingBookingInHostel) throw new Error('You already have a pending booking request in this hostel.');
 
-
-        // Block duplicate booking by same student (overlapping)
         const existingStudentBooking = await Booking.findOne({
             where: {
                 user_id: userId,
@@ -65,11 +50,8 @@ class BookingService {
             }
         });
 
-        if (existingStudentBooking) {
-            throw new Error('You already have a booking request for this room');
-        }
+        if (existingStudentBooking) throw new Error('You already have a booking request for this room');
 
-        // Count active bookings for this room (capacity check)
         const activeBookingsCount = await Booking.count({
             where: {
                 room_id: data.room_id,
@@ -78,11 +60,8 @@ class BookingService {
             }
         });
 
-        if (activeBookingsCount >= room.total_beds) {
-            throw new Error('Room is fully booked for the selected duration');
-        }
+        if (activeBookingsCount >= room.total_beds) throw new Error('Room is fully booked');
 
-        // Create booking
         const booking = await Booking.create({
             user_id: userId,
             room_id: data.room_id,
@@ -92,8 +71,7 @@ class BookingService {
             status: 'REQUESTED'
         });
 
-        // Notify hostel owner
-        // Notify hostel owner
+        const student = await User.findByPk(userId);
         await sendEmail(
             room.hostel.owner.email,
             'New Booking Request',
@@ -101,7 +79,7 @@ class BookingService {
                 <h3>New Booking Request</h3>
                 <p><b>Hostel:</b> ${room.hostel.name}</p>
                 <p><b>Room Number:</b> ${room.room_number || room.room_id}</p>
-                <p><b>Student:</b> ${req.user.first_name} ${req.user.last_name}</p>
+                <p><b>Student:</b> ${student.first_name} ${student.last_name}</p>
                 <p><b>Duration:</b> ${data.start_date} → ${data.end_date}</p>
             `
         );
@@ -109,12 +87,8 @@ class BookingService {
         return booking;
     }
 
-    //Update booking status (Approve/Reject)
-
     async updateStatus(bookingId, status, userId, userRole) {
-        if (!['APPROVED', 'REJECTED'].includes(status)) {
-            throw new Error('Invalid status');
-        }
+        if (!['APPROVED', 'REJECTED'].includes(status)) throw new Error('Invalid status');
 
         const booking = await Booking.findByPk(bookingId, {
             include: {
@@ -128,45 +102,22 @@ class BookingService {
             }
         });
 
-        if (!booking) {
-            throw new Error('Booking not found');
-        }
+        if (!booking) throw new Error('Booking not found');
 
-        // Authorization
-        if (
-            userRole !== 'admin' &&
-            booking.room.hostel.user_id !== userId
-        ) {
-            throw new Error('Unauthorized');
-        }
+        if (userRole !== 'admin' && booking.room.hostel.user_id !== userId) throw new Error('Unauthorized');
+        if (booking.status !== 'REQUESTED') throw new Error(`Booking already ${booking.status}`);
 
-        if (booking.status !== 'REQUESTED') {
-            throw new Error(`Booking already ${booking.status}`);
-        }
-
-        // APPROVE
         if (status === 'APPROVED') {
-            if (booking.room.available_beds <= 0) {
-                throw new Error('No available beds');
-            }
-
-
-            // calculate availability dynamically
+            if (booking.room.available_beds <= 0) throw new Error('No available beds');
             booking.room.available_beds -= 1;
-
-            if (booking.room.available_beds === 0) {
-                booking.room.status = 'FULL';
-            }
-
+            if (booking.room.available_beds === 0) booking.room.status = 'FULL';
             await booking.room.save();
         }
 
         booking.status = status;
         await booking.save();
 
-        // Notify student
         const student = await User.findByPk(booking.user_id);
-
         await sendEmail(
             student.email,
             `Booking ${status}`,
@@ -180,30 +131,18 @@ class BookingService {
         return booking;
     }
 
-    // Get bookings based on user role
-
     async findAll(userId, userRole) {
         let whereClause = {};
-
         if (userRole === 'student') {
             whereClause.user_id = userId;
-        }
-
-        if (userRole === 'owner') {
-            const hostels = await Hostel.findAll({
-                where: { user_id: userId }
-            });
-
+        } else if (userRole === 'owner') {
+            const hostels = await Hostel.findAll({ where: { user_id: userId } });
             const hostelIds = hostels.map(h => h.hostel_id);
-
-            const rooms = await Room.findAll({
-                where: { hostel_id: hostelIds }
-            });
-
+            const rooms = await Room.findAll({ where: { hostel_id: hostelIds } });
             whereClause.room_id = rooms.map(r => r.room_id);
         }
 
-        const bookings = await Booking.findAll({
+        return await Booking.findAll({
             where: whereClause,
             include: [
                 {
@@ -215,12 +154,14 @@ class BookingService {
                     model: User,
                     as: 'student',
                     attributes: ['user_id', 'first_name', 'last_name', 'email']
+                },
+                {
+                    model: Payment,
+                    as: 'payments'
                 }
             ],
             order: [['created_at', 'DESC']]
         });
-
-        return bookings;
     }
 }
 

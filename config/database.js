@@ -123,7 +123,7 @@ Message.belongsTo(User, { as: 'sender', foreignKey: 'sender_id' });
  
 // Payments
 Booking.hasMany(Payment, { foreignKey: 'booking_id', as: 'payments' });
-Payment.belongsTo(Booking, { foreignKey: 'booking_id' });
+Payment.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
 
 
 export const initDB = async () => {

@@ -3,13 +3,13 @@ import jwt from 'jsonwebtoken';
 export const generateTokens = {
     access: (user) => {
         return jwt.sign(
-            { 
-                id: user.user_id, 
-                email: user.email, 
-                role: user.role 
+            {
+                id: user.user_id,
+                email: user.email,
+                role: user.role
             },
             process.env.JWT_ACCESS_SECRET || 'access-secret-2026',
-            { expiresIn: '15m' }
+            { expiresIn: '15d' }
         );
     },
     refresh: (user) => {

@@ -2,20 +2,13 @@ import PaymentService from '../services/paymentService.js';
 
 export const initiateKhaltiPayment = async (req, res) => {
     try {
-        const { bookingId, paymentType } = req.body;
+        const { bookingId, paymentType, amount, months } = req.body;
         
         if (!bookingId || !paymentType) {
             return res.status(400).json({ error: 'bookingId and paymentType are required' });
         }
 
-        // Optional: Check if the user making the request belongs to the booking
-        // This assumes authenticate middleware sets req.user.id
-        // const booking = await Booking.findByPk(bookingId);
-        // if (booking.user_id !== req.user.id) {
-        //     return res.status(403).json({ error: 'Unauthorized to pay for this booking' });
-        // }
-
-        const data = await PaymentService.initiatePayment(bookingId, paymentType);
+        const data = await PaymentService.initiatePayment(bookingId, paymentType, amount, months);
         res.json({ success: true, ...data });
     } catch (err) {
         console.error('Initiate payment error:', err);
@@ -49,6 +42,33 @@ export const getPaymentStatus = async (req, res) => {
         const { pidx } = req.params;
         const result = await PaymentService.verifyPayment(pidx);
         res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const getStudentPayments = async (req, res) => {
+    try {
+        const payments = await PaymentService.getStudentPayments(req.user.id);
+        res.json({ success: true, payments });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const getOwnerPayments = async (req, res) => {
+    try {
+        const payments = await PaymentService.getOwnerPayments(req.user.id);
+        res.json({ success: true, payments });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const getAllPayments = async (req, res) => {
+    try {
+        const payments = await PaymentService.getAllPayments();
+        res.json({ success: true, payments });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
