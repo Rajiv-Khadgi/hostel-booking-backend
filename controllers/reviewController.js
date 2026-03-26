@@ -77,3 +77,14 @@ export const replyToReview = async (req, res) => {
         res.status(400).json({ error: err.message });
     }
 };
+
+export const flagReview = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+        const review = await ReviewService.flagReview(id, req.user.id, reason);
+        res.json({ success: true, message: 'Review flagged for moderation', review });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
