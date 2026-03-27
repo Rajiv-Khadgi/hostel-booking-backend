@@ -31,6 +31,14 @@ const ReviewModel = (sequelize) => {
         reply_date: {
             type: DataTypes.DATE,
             allowNull: true
+        },
+        is_flagged: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false
+        },
+        flag_reason: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     }, {
         tableName: 'reviews',

@@ -6,24 +6,22 @@ import {
     getHostelReviews,
     updateReview,
     deleteReview,
-    replyToReview
+    replyToReview,
+    flagReview
 } from '../controllers/reviewController.js';
 
 const router = express.Router();
 
-// Public: Get reviews for a hostel
-router.get('/hostels/:hostelId/reviews', getHostelReviews);
-
-// Student: Create Review
-router.post('/hostels/:hostelId/reviews', authenticate, authorize('student'), createReview);
-
 // Student: Update own review
-router.put('/reviews/:id', authenticate, authorize('student'), updateReview);
+router.put('/:id', authenticate, authorize('student'), updateReview);
 
 // Student/Admin: Delete review
-router.delete('/reviews/:id', authenticate, deleteReview);
+router.delete('/:id', authenticate, deleteReview);
 
 // Owner: Reply to review
-router.patch('/reviews/:id/reply', authenticate, authorize('owner'), replyToReview);
+router.patch('/:id/reply', authenticate, authorize('owner'), replyToReview);
+
+// Owner: Flag review
+router.patch('/:id/flag', authenticate, authorize('owner'), flagReview);
 
 export default router;

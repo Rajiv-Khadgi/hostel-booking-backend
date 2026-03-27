@@ -103,6 +103,28 @@ class ReviewService {
             reply_date: new Date()
         });
     }
+
+    // Flag Review (Owner)
+    async flagReview(reviewId, ownerId, reason) {
+        const review = await Review.findByPk(reviewId, {
+            include: {
+                model: Hostel,
+                as: 'hostel'
+            }
+        });
+
+        if (!review) throw new Error('Review not found');
+
+        // Check if user is the owner of the hostel
+        if (review.hostel.user_id !== ownerId) {
+            throw new Error('Unauthorized: You are not the owner of this hostel');
+        }
+
+        return await review.update({
+            is_flagged: true,
+            flag_reason: reason
+        });
+    }
 }
 
 export default new ReviewService();
