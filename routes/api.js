@@ -21,6 +21,7 @@ import chatRoutes from './chatRoutes.js';
 import profileRoutes from './profileRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
+import adminRoutes from './adminRoutes.js';
 
 import { authenticate } from '../middleware/authMiddleware.js';
 
@@ -62,7 +63,8 @@ router.use('/chat', chatRoutes); // Added route
 // Payments
 router.use('/payments', paymentRoutes);
 // Reviews
-router.use('/', reviewRoutes);
+router.use('/reviews', reviewRoutes);
+router.use('/admin', adminRoutes);
 
 
 export default router;
