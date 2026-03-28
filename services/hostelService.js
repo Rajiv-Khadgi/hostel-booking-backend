@@ -117,6 +117,46 @@ class HostelService {
         return hostels;
     }
 
+    // Find nearby hostels
+    async findNearby(lat, lng, radiusKm) {
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lng);
+        const radius = parseFloat(radiusKm);
+
+        if (isNaN(latitude) || isNaN(longitude)) {
+            throw new Error('Invalid coordinates');
+        }
+
+        const haversine = `(
+            6371 * acos(
+                cos(radians(${latitude}))
+                * cos(radians(latitude::float))
+                * cos(radians(longitude::float) - radians(${longitude}))
+                + sin(radians(${latitude})) * sin(radians(latitude::float))
+            )
+        )`;
+
+        return await Hostel.findAll({
+            attributes: {
+                include: [
+                    [sequelize.literal(haversine), 'distance']
+                ]
+            },
+            where: {
+                status: 'APPROVED',
+                latitude: { [Op.not]: null },
+                longitude: { [Op.not]: null },
+                [Op.and]: sequelize.where(sequelize.literal(haversine), '<=', radius)
+            },
+            include: [
+                { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
+                { model: Room, as: 'rooms', attributes: ['price'] },
+                { model: Review, as: 'reviews', attributes: ['rating'] }
+            ],
+            order: sequelize.literal('distance ASC')
+        });
+    }
+
     // Find my hostels (Owner Dashboard)
     async findMyHostels(userId) {
         return await Hostel.findAll({

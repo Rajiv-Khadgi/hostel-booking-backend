@@ -77,6 +77,21 @@ export const getHostels = async (req, res) => {
     }
 };
 
+// Get Nearby Hostels
+export const getNearbyHostels = async (req, res) => {
+    try {
+        const { lat, lng, radius } = req.query;
+        if (!lat || !lng) {
+            return res.status(400).json({ error: 'Latitude and longitude are required' });
+        }
+        const hostels = await HostelService.findNearby(lat, lng, radius || 10);
+        res.json({ success: true, hostels });
+    } catch (err) {
+        console.error('Get nearby hostels error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 //  Get my hostels (Auth required)
 export const getMyHostels = async (req, res) => {
     try {

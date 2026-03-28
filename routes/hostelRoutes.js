@@ -15,8 +15,10 @@ import {
     unsaveHostel,
     getSavedHostels,
     uploadHostelImages,
-    deleteHostelImage
+    deleteHostelImage,
+    getNearbyHostels
 } from '../controllers/hostelController.js';
+import { getHostelReviews, createReview } from '../controllers/reviewController.js';
 import { uploadPropertyImage } from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
@@ -31,7 +33,12 @@ router.get('/my-hostels', authenticate, authorize('owner', 'admin'), getMyHostel
 
 // Public route
 router.get('/', getHostels);
+router.get('/nearby', getNearbyHostels);
 router.get('/:id', getHostelById);
+router.get('/:hostelId/reviews', getHostelReviews);
+
+// Student Only
+router.post('/:hostelId/reviews', authenticate, authorize('student'), createReview);
 
 // More Owner/Admin only
 router.post('/', authenticate, authorize('owner', 'admin'), createHostel);

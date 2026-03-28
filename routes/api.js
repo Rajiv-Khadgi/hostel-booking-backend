@@ -1,7 +1,9 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 
 import {
+    requestRegistrationOtp,
     registerStudent,
     registerOwner,
     login,
@@ -28,9 +30,27 @@ import { authenticate } from '../middleware/authMiddleware.js';
 const router = express.Router();
 router.use(cookieParser());
 
+// Rate Limiters
+const otpLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // Limit each IP to 5 OTP requests per `window`
+    message: { error: 'Too many OTP requests from this IP, please try again after an hour' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10, // Limit each IP to 10 registration attempts per `window`
+    message: { error: 'Too many registration attempts from this IP, please try again after an hour' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 // Auth
-router.post('/register/student', registerStudent);
-router.post('/register/owner', registerOwner);
+router.post('/register-request', otpLimiter, requestRegistrationOtp);
+router.post('/register/student', registerLimiter, registerStudent);
+router.post('/register/owner', registerLimiter, registerOwner);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
