@@ -8,6 +8,7 @@ import ReviewModel from '../models/Review.js';
 import ImageModel from '../models/Image.js'; // Polymorphic
 import BookingModel from '../models/Booking.js';
 import VisitModel from '../models/Visit.js';
+import RegistrationOtpModel from '../models/RegistrationOtp.js';
 
 
 export const sequelize = new Sequelize(
@@ -41,6 +42,7 @@ export const SavedHostel = SavedHostelModel(sequelize);
 export const Conversation = ConversationModel(sequelize);
 export const Message = MessageModel(sequelize);
 export const Payment = PaymentModel(sequelize);
+export const RegistrationOtp = RegistrationOtpModel(sequelize);
 
 
 // Associations

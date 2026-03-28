@@ -14,8 +14,7 @@ const UserModel = (sequelize) => {
         },
         middle_name: {
             type: DataTypes.STRING(50),
-            allowNull: true,
-            validate: { len: [1, 50] }
+            allowNull: true
         },
         last_name: {
             type: DataTypes.STRING(50),
