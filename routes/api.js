@@ -62,7 +62,7 @@ router.post('/logout', logout);
 router.use('/profile', profileRoutes);
 
 // Metadata (Public)
-router.use('/', metadataRoutes);
+router.use('/metadata', metadataRoutes);
 
 // Hostel CRUD
 router.use('/hostels', hostelRoutes);

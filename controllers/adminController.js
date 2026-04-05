@@ -1,4 +1,4 @@
-import { User, Hostel, Booking, Payment, Review, sequelize } from '../config/database.js';
+import { User, Hostel, Booking, Payment, Review, Image, sequelize } from '../config/database.js';
 import { Op } from 'sequelize';
 
 // Users Management
@@ -57,11 +57,19 @@ export const updateUserStatus = async (req, res) => {
 export const getAllHostels = async (req, res) => {
     try {
         const hostels = await Hostel.findAll({
-            include: [{
-                model: User,
-                as: 'owner',
-                attributes: ['first_name', 'last_name', 'email']
-            }],
+            include: [
+                {
+                    model: User,
+                    as: 'owner',
+                    attributes: ['first_name', 'last_name', 'email']
+                },
+                {
+                    model: Image,
+                    as: 'images',
+                    where: { entity_type: 'HOSTEL' },
+                    required: false
+                }
+            ],
             order: [['created_at', 'DESC']]
         });
         res.json({ success: true, hostels });
