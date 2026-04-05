@@ -16,7 +16,8 @@ import {
     getSavedHostels,
     uploadHostelImages,
     deleteHostelImage,
-    getNearbyHostels
+    getNearbyHostels,
+    setHostelCoverImage
 } from '../controllers/hostelController.js';
 import { getHostelReviews, createReview } from '../controllers/reviewController.js';
 import { uploadPropertyImage } from '../middleware/uploadMiddleware.js';
@@ -46,7 +47,8 @@ router.put('/:id', authenticate, authorize('owner', 'admin'), updateHostel);
 router.delete('/:id', authenticate, authorize('owner', 'admin'), deleteHostel);
 router.patch('/:id/approve', authenticate, authorize('admin'), approveHostel);
 router.patch('/:id/reject', authenticate, authorize('admin'), rejectHostel);
-router.post('/:id/images', authenticate, authorize('owner', 'admin'), uploadPropertyImage.array('images', 10), uploadHostelImages);
+router.post('/:id/images', authenticate, authorize('owner', 'admin'), uploadPropertyImage.array('images', 5), uploadHostelImages);
 router.delete('/:id/images/:imageId', authenticate, authorize('owner', 'admin'), deleteHostelImage);
+router.put('/:id/images/:imageId/set-cover', authenticate, authorize('owner', 'admin'), setHostelCoverImage);
 
 export default router;

@@ -40,6 +40,11 @@ const HostelModel = (sequelize) => {
             defaultValue: 'PENDING',
             allowNull: false
         },
+        gender_type: {
+            type: DataTypes.ENUM('BOYS', 'GIRLS', 'COED'),
+            defaultValue: 'COED',
+            allowNull: false
+        },
         user_id: {
             type: DataTypes.INTEGER,
             allowNull: false

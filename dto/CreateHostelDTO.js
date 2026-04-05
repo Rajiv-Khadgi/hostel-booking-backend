@@ -8,8 +8,9 @@ const hostelSchema = yup.object({
     address: yup.string().required('Address is required'),
     latitude: yup.number().nullable(),
     longitude: yup.number().nullable(),
-    amenityIds: yup.array().of(yup.number()).optional(),
-    serviceIds: yup.array().of(yup.number()).optional()
+    gender_type: yup.string().oneOf(['BOYS', 'GIRLS', 'COED'], 'Invalid gender selection').required('Gender is required'),
+    amenityIds: yup.array().of(yup.number()).min(1, 'Select at least one amenity').required('Amenities are required'),
+    serviceIds: yup.array().of(yup.number()).min(1, 'Select at least one service').required('Services are required')
 });
 
 export class CreateHostelDTO {

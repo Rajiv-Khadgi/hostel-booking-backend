@@ -211,11 +211,18 @@ export const uploadHostelImages = async (req, res) => {
 
         const { Image } = await import('../config/database.js');
 
-        const imagesToSave = req.files.map(file => ({
+        // Check if hostel already has a cover image
+        const existingCover = await Image.findOne({ 
+            where: { entity_type: 'HOSTEL', entity_id: id, is_cover: true } 
+        });
+
+        const targetCoverIndex = parseInt(req.body.coverIndex) || 0;
+
+        const imagesToSave = req.files.map((file, idx) => ({
             image_url: `/uploads/properties/${file.filename}`,
             entity_type: 'HOSTEL',
             entity_id: id,
-            is_cover: false // Default
+            is_cover: !existingCover && idx === targetCoverIndex ? true : false
         }));
 
         await Image.bulkCreate(imagesToSave);
@@ -250,6 +257,40 @@ export const deleteHostelImage = async (req, res) => {
         await image.destroy();
 
         res.json({ success: true, message: 'Image deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Set Hostel Cover Image
+export const setHostelCoverImage = async (req, res) => {
+    try {
+        const { id, imageId } = req.params;
+        const hostel = await HostelService.findById(id);
+        if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
+
+        if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        const { Image } = await import('../config/database.js');
+        const image = await Image.findOne({ where: { image_id: imageId, entity_id: id, entity_type: 'HOSTEL' } });
+
+        if (!image) return res.status(404).json({ error: 'Image not found' });
+
+        // Reset all images to false
+        await Image.update({ is_cover: false }, { where: { entity_id: id, entity_type: 'HOSTEL' } });
+        
+        // Set selected to true
+        image.is_cover = true;
+        await image.save();
+
+        const updatedImages = await Image.findAll({ 
+            where: { entity_type: 'HOSTEL', entity_id: id },
+            order: [['createdAt', 'ASC']]
+        });
+
+        res.json({ success: true, message: 'Cover image updated successfully', images: updatedImages });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

@@ -8,7 +8,10 @@ const updateSchema = yup.object({
     address: yup.string(),
     latitude: yup.number().nullable(),
     longitude: yup.number().nullable(),
-    status: yup.string().oneOf(['active', 'inactive'])
+    gender_type: yup.string().oneOf(['BOYS', 'GIRLS', 'COED'], 'Invalid gender selection'),
+    amenityIds: yup.array().of(yup.number()).min(1, 'Select at least one amenity'),
+    serviceIds: yup.array().of(yup.number()).min(1, 'Select at least one service'),
+    status: yup.string().oneOf(['PENDING', 'APPROVED', 'REJECTED'])
 });
 
 export class UpdateHostelDTO {

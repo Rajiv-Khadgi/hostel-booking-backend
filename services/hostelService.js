@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Hostel, User, Image, Amenity, Review, Room, SavedHostel, sequelize } from '../config/database.js';
+import { Hostel, User, Image, Amenity, Service, Review, Room, SavedHostel, sequelize } from '../config/database.js';
 
 class HostelService {
 
@@ -67,6 +67,11 @@ class HostelService {
                 model: Amenity,
                 as: 'amenities',
                 through: { attributes: [] } // Exclude junction table data
+            },
+            {
+                model: Service,
+                as: 'services',
+                through: { attributes: [] }
             }
         ];
 
@@ -163,7 +168,9 @@ class HostelService {
             where: { user_id: userId },
             include: [
                 { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
-                { model: Room, as: 'rooms' }
+                { model: Room, as: 'rooms' },
+                { model: Amenity, as: 'amenities', through: { attributes: [] } },
+                { model: Service, as: 'services', through: { attributes: [] } }
             ],
             order: [['created_at', 'DESC']]
         });
@@ -181,6 +188,7 @@ class HostelService {
                 },
                 { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
                 { model: Amenity, as: 'amenities' },
+                { model: Service, as: 'services' },
                 {
                     model: Review,
                     as: 'reviews',
@@ -194,7 +202,14 @@ class HostelService {
     async update(id, data) {
         const hostel = await Hostel.findByPk(id);
         if (!hostel) throw new Error('Hostel not found');
-        return await hostel.update(data);
+        
+        const { amenityIds, serviceIds, ...hostelData } = data;
+        await hostel.update(hostelData);
+        
+        if (amenityIds) await hostel.setAmenities(amenityIds);
+        if (serviceIds) await hostel.setServices(serviceIds);
+        
+        return this.findById(id);
     }
 
     // Delete Hostel
