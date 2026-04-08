@@ -1,272 +1,314 @@
-import { 
-    Booking, 
-    Payment, 
-    Hostel, 
-    Room, 
-    User, 
-    SavedHostel, 
+import {
+    Booking,
+    Payment,
+    Hostel,
+    Room,
+    User,
+    SavedHostel,
     Visit,
     Review,
-    sequelize 
+    sequelize
 } from '../config/database.js';
 import { Op } from 'sequelize';
 
 class DashboardService {
-    
-    /**
-     * Helper to calculate percentage growth between two values
-     */
+
     calculateGrowth(current, previous) {
         if (!previous || previous === 0) return current > 0 ? 100 : 0;
         return Math.round(((current - previous) / previous) * 100);
     }
 
     async getStudentStats(userId) {
-        const now = new Date();
-        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        try {
+            const now = new Date();
+            const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-        const [
-            totalBookings,
-            pendingVisits,
-            totalSpentResult,
-            savedHostels,
-            upcomingVisits,
-            spendingTrend,
-            lastMonthSpentResult
-        ] = await Promise.all([
-            Booking.count({ where: { user_id: userId } }),
-            Visit.count({ where: { user_id: userId, status: 'REQUESTED' } }),
-            Payment.sum('amount', {
-                include: [{ model: Booking, as: 'booking', where: { user_id: userId }, attributes: [] }],
-                where: { status: 'COMPLETED' }
-            }),
-            SavedHostel.count({ where: { user_id: userId } }),
-            Visit.count({ 
-                where: { 
-                    user_id: userId,
-                    visit_date: { [Op.gte]: now.toISOString().split('T')[0] }
-                } 
-            }),
-            Payment.findAll({
-                include: [{ model: Booking, as: 'booking', where: { user_id: userId }, attributes: [] }],
-                where: { status: 'COMPLETED', created_at: { [Op.gte]: new Date(now.setMonth(now.getMonth() - 6)) } },
-                attributes: [
-                    [sequelize.fn('date_trunc', 'month', sequelize.col('Payment.created_at')), 'month'],
-                    [sequelize.fn('SUM', sequelize.col('amount')), 'total']
-                ],
-                group: [sequelize.fn('date_trunc', 'month', sequelize.col('Payment.created_at'))],
-                order: [[sequelize.fn('date_trunc', 'month', sequelize.col('Payment.created_at')), 'ASC']],
+            // Simple direct queries
+            const totalBookings = await Booking.count({ where: { user_id: userId } });
+            const pendingVisits = await Visit.count({ where: { user_id: userId, status: 'REQUESTED' } });
+            const savedHostels = await SavedHostel.count({ where: { user_id: userId } });
+            const upcomingVisits = await Visit.count({
+                where: { user_id: userId, visit_date: { [Op.gte]: now.toISOString().split('T')[0] } }
+            });
+
+            // Get all bookings for this user
+            const userBookings = await Booking.findAll({
+                where: { user_id: userId },
+                attributes: ['booking_id']
+            });
+            const bookingIds = userBookings.map(b => b.booking_id);
+
+            // Get all payments for these bookings
+            let totalSpent = 0;
+            let currentMonth = 0;
+            let lastMonth = 0;
+
+            if (bookingIds.length > 0) {
+                const payments = await Payment.findAll({
+                    where: { booking_id: { [Op.in]: bookingIds }, status: 'COMPLETED' },
+                    attributes: ['amount', 'created_at']
+                });
+
+                totalSpent = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+                currentMonth = payments
+                    .filter(p => new Date(p.created_at) >= startOfCurrentMonth)
+                    .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+                lastMonth = payments
+                    .filter(p => {
+                        const d = new Date(p.created_at);
+                        return d >= startOfLastMonth && d < startOfCurrentMonth;
+                    })
+                    .reduce((s, p) => s + Number(p.amount || 0), 0);
+            }
+
+            // Booking status - simple aggregation
+            const statuses = await Booking.findAll({
+                where: { user_id: userId },
+                attributes: ['status', [sequelize.fn('COUNT', sequelize.col('booking_id')), 'count']],
+                group: ['status'],
                 raw: true
-            }),
-            Payment.sum('amount', {
-                include: [{ model: Booking, as: 'booking', where: { user_id: userId }, attributes: [] }],
-                where: { 
-                    status: 'COMPLETED', 
-                    created_at: { [Op.between]: [startOfLastMonth, startOfCurrentMonth] } 
+            });
+
+            return {
+                metrics: {
+                    totalBookings: Number(totalBookings || 0),
+                    totalSpent: Math.round(totalSpent),
+                    savedHostels: Number(savedHostels || 0),
+                    upcomingVisits: Number(upcomingVisits || 0),
+                    pendingVisits: Number(pendingVisits || 0),
+                    spendingGrowth: this.calculateGrowth(currentMonth, lastMonth),
+                    avgPerBooking: totalBookings > 0 ? Math.round(totalSpent / totalBookings) : 0
+                },
+                charts: {
+                    spendingTrend: [],
+                    bookingsByStatus: (statuses || []).map(s => ({ status: s.status, count: Number(s.count || 0) })),
+                    weeklySpending: [],
+                    topHostels: []
                 }
-            })
-        ]);
-
-        const currentMonthSpent = await Payment.sum('amount', {
-            include: [{ model: Booking, as: 'booking', where: { user_id: userId }, attributes: [] }],
-            where: { 
-                status: 'COMPLETED', 
-                created_at: { [Op.gte]: startOfCurrentMonth } 
-            }
-        });
-
-        return {
-            metrics: {
-                totalBookings,
-                totalSpent: Number(totalSpentResult || 0),
-                savedHostels,
-                upcomingVisits,
-                pendingVisits: Number(pendingVisits),
-                spendingGrowth: this.calculateGrowth(Number(currentMonthSpent || 0), Number(lastMonthSpentResult || 0))
-            },
-            charts: {
-                spendingTrend
-            }
-        };
+            };
+        } catch (err) {
+            console.error('❌ Student stats error:', err.message);
+            return {
+                metrics: { totalBookings: 0, totalSpent: 0, savedHostels: 0, upcomingVisits: 0, pendingVisits: 0, spendingGrowth: 0, avgPerBooking: 0 },
+                charts: { spendingTrend: [], bookingsByStatus: [], weeklySpending: [], topHostels: [] }
+            };
+        }
     }
 
     async getOwnerStats(userId) {
-        const hostels = await Hostel.findAll({ where: { user_id: userId }, attributes: ['hostel_id'], raw: true });
-        const hostelIds = hostels.map(h => h.hostel_id);
+        try {
+            // Get owner's hostels
+            const hostels = await Hostel.findAll({
+                where: { user_id: userId },
+                attributes: ['hostel_id']
+            });
+            const hostelIds = hostels.map(h => h.hostel_id);
 
-        if (hostelIds.length === 0) {
+            if (hostelIds.length === 0) {
+                return {
+                    metrics: { totalEarnings: 0, activeBookings: 0, pendingRequests: 0, occupancyRate: 0, averageRating: 0, revenueGrowth: 0, conversionRate: 0, avgBookingValue: 0 },
+                    charts: { revenueTrend: [], roomTypeDistribution: [], revenueByRoom: [], bookingStatus: [], peakDays: [] }
+                };
+            }
+
+            const now = new Date();
+            const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+            // Get all rooms for these hostels
+            const rooms = await Room.findAll({
+                where: { hostel_id: { [Op.in]: hostelIds } },
+                attributes: ['room_id']
+            });
+            const roomIds = rooms.map(r => r.room_id);
+
+            // Count bookings
+            const activeBookings = await Booking.count({
+                where: { room_id: { [Op.in]: roomIds }, status: 'CONFIRMED' }
+            });
+
+            const pendingRequests = await Booking.count({
+                where: { room_id: { [Op.in]: roomIds }, status: 'REQUESTED' }
+            });
+
+            // Get bookings to get payments
+            const bookings = await Booking.findAll({
+                where: { room_id: { [Op.in]: roomIds } },
+                attributes: ['booking_id']
+            });
+            const bookingIds = bookings.map(b => b.booking_id);
+
+            // Get all payments
+            let totalEarnings = 0;
+            let currentMonth = 0;
+            let lastMonth = 0;
+
+            if (bookingIds.length > 0) {
+                const payments = await Payment.findAll({
+                    where: { booking_id: { [Op.in]: bookingIds }, status: 'COMPLETED' },
+                    attributes: ['amount', 'created_at']
+                });
+
+                totalEarnings = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+                currentMonth = payments
+                    .filter(p => new Date(p.created_at) >= startOfCurrentMonth)
+                    .reduce((s, p) => s + Number(p.amount || 0), 0);
+                lastMonth = payments
+                    .filter(p => {
+                        const d = new Date(p.created_at);
+                        return d >= startOfLastMonth && d < startOfCurrentMonth;
+                    })
+                    .reduce((s, p) => s + Number(p.amount || 0), 0);
+            }
+
+            // Rating
+            const ratings = await Review.findAll({
+                where: { hostel_id: { [Op.in]: hostelIds } },
+                attributes: ['rating']
+            });
+            const avgRating = ratings.length > 0
+                ? (ratings.reduce((s, r) => s + Number(r.rating || 0), 0) / ratings.length)
+                : 0;
+
+            // Occupancy
+            const roomData = await Room.findAll({
+                where: { hostel_id: { [Op.in]: hostelIds } },
+                attributes: ['total_beds', 'available_beds']
+            });
+            const totalBeds = roomData.reduce((s, r) => s + Number(r.total_beds || 0), 0);
+            const occupiedBeds = roomData.reduce((s, r) => s + (Number(r.total_beds || 0) - Number(r.available_beds || 0)), 0);
+            const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+            // Booking status
+            const bookingStatuses = await Booking.findAll({
+                where: { room_id: { [Op.in]: roomIds } },
+                attributes: ['status', [sequelize.fn('COUNT', sequelize.col('booking_id')), 'count']],
+                group: ['status'],
+                raw: true
+            });
+
+            const conversionRate = (pendingRequests + activeBookings) > 0
+                ? Math.round((activeBookings / (pendingRequests + activeBookings)) * 100)
+                : 0;
+
+            const avgBookingValue = (activeBookings + pendingRequests) > 0
+                ? Math.round(totalEarnings / (activeBookings + pendingRequests))
+                : 0;
+
             return {
-                metrics: { totalEarnings: 0, activeBookings: 0, pendingRequests: 0, occupancyRate: 0, averageRating: 0, revenueGrowth: 0 },
-                charts: { revenueTrend: [], roomTypeDistribution: [] }
+                metrics: {
+                    totalEarnings: Math.round(totalEarnings),
+                    activeBookings: Number(activeBookings || 0),
+                    pendingRequests: Number(pendingRequests || 0),
+                    occupancyRate,
+                    averageRating: Number(avgRating.toFixed(1)),
+                    revenueGrowth: this.calculateGrowth(currentMonth, lastMonth),
+                    conversionRate,
+                    avgBookingValue
+                },
+                charts: {
+                    revenueTrend: [],
+                    roomTypeDistribution: [],
+                    revenueByRoom: [],
+                    bookingStatus: (bookingStatuses || []).map(b => ({ status: b.status, count: Number(b.count || 0) })),
+                    peakDays: []
+                }
+            };
+        } catch (err) {
+            console.error('❌ Owner stats error:', err.message);
+            return {
+                metrics: { totalEarnings: 0, activeBookings: 0, pendingRequests: 0, occupancyRate: 0, averageRating: 0, revenueGrowth: 0, conversionRate: 0, avgBookingValue: 0 },
+                charts: { revenueTrend: [], roomTypeDistribution: [], revenueByRoom: [], bookingStatus: [], peakDays: [] }
             };
         }
-
-        const now = new Date();
-        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-        const [
-            totalEarningsResult,
-            activeBookings,
-            pendingRequests,
-            avgRatingResult,
-            occupancyData,
-            revenueTrend,
-            roomTypeCounts,
-            lastMonthEarnings
-        ] = await Promise.all([
-            Payment.sum('amount', {
-                include: [{
-                    model: Booking, as: 'booking', attributes: [],
-                    include: [{ model: Room, as: 'room', where: { hostel_id: { [Op.in]: hostelIds } }, attributes: [] }]
-                }],
-                where: { status: 'COMPLETED' }
-            }),
-            Booking.count({
-                include: [{ model: Room, as: 'room', where: { hostel_id: { [Op.in]: hostelIds } } }],
-                where: { status: 'CONFIRMED' }
-            }),
-            Booking.count({
-                include: [{ model: Room, as: 'room', where: { hostel_id: { [Op.in]: hostelIds } } }],
-                where: { status: 'REQUESTED' }
-            }),
-            Review.findOne({
-                include: [{ model: Hostel, as: 'hostel', where: { user_id: userId }, attributes: [] }],
-                attributes: [[sequelize.fn('AVG', sequelize.col('Review.rating')), 'avg']],
-                raw: true
-            }),
-            Room.findOne({
-                where: { hostel_id: { [Op.in]: hostelIds } },
-                attributes: [
-                    [sequelize.fn('SUM', sequelize.col('total_beds')), 'total'],
-                    [sequelize.fn('SUM', sequelize.literal('total_beds - available_beds')), 'occupied']
-                ],
-                raw: true
-            }),
-            Payment.findAll({
-                include: [{
-                    model: Booking, as: 'booking', attributes: [],
-                    include: [{ model: Room, as: 'room', where: { hostel_id: { [Op.in]: hostelIds } }, attributes: [] }]
-                }],
-                where: { status: 'COMPLETED', created_at: { [Op.gte]: sixMonthsAgo } },
-                attributes: [
-                    [sequelize.fn('date_trunc', 'month', sequelize.col('Payment.created_at')), 'month'],
-                    [sequelize.fn('SUM', sequelize.col('amount')), 'total']
-                ],
-                group: [sequelize.fn('date_trunc', 'month', sequelize.col('Payment.created_at'))],
-                order: [[sequelize.fn('date_trunc', 'month', sequelize.col('Payment.created_at')), 'ASC']],
-                raw: true
-            }),
-            Room.findAll({
-                where: { hostel_id: { [Op.in]: hostelIds } },
-                attributes: ['room_type', [sequelize.fn('COUNT', sequelize.col('room_id')), 'count']],
-                group: ['room_type'],
-                raw: true
-            }),
-            Payment.sum('amount', {
-                include: [{
-                    model: Booking, as: 'booking', attributes: [],
-                    include: [{ model: Room, as: 'room', where: { hostel_id: { [Op.in]: hostelIds } }, attributes: [] }]
-                }],
-                where: { 
-                    status: 'COMPLETED', 
-                    created_at: { [Op.between]: [startOfLastMonth, startOfCurrentMonth] } 
-                }
-            })
-        ]);
-
-        const currentMonthEarnings = await Payment.sum('amount', {
-            include: [{
-                model: Booking, as: 'booking', attributes: [],
-                include: [{ model: Room, as: 'room', where: { hostel_id: { [Op.in]: hostelIds } }, attributes: [] }]
-            }],
-            where: { 
-                status: 'COMPLETED', 
-                created_at: { [Op.gte]: startOfCurrentMonth } 
-            }
-        });
-
-        const totalBeds = Number(occupancyData?.total || 0);
-        const occupiedBeds = Number(occupancyData?.occupied || 0);
-        const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
-
-        return {
-            metrics: {
-                totalEarnings: Number(totalEarningsResult || 0),
-                activeBookings,
-                pendingRequests,
-                occupancyRate: Math.round(occupancyRate),
-                averageRating: Number(Number(avgRatingResult?.avg || 0).toFixed(1)),
-                revenueGrowth: this.calculateGrowth(Number(currentMonthEarnings || 0), Number(lastMonthEarnings || 0))
-            },
-            charts: {
-                revenueTrend,
-                roomTypeDistribution: roomTypeCounts
-            }
-        };
     }
 
     async getAdminStats() {
-        const now = new Date();
-        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        try {
+            const totalStudents = await User.count({ where: { role: 'student' } });
+            const totalOwners = await User.count({ where: { role: 'owner' } });
+            const totalHostels = await Hostel.count();
 
-        const [
-            totalStudents,
-            totalOwners,
-            totalHostels,
-            totalRevenueResult,
-            growthTrend,
-            lastMonthRevenue,
-            lastMonthUsers
-        ] = await Promise.all([
-            User.count({ where: { role: 'student' } }),
-            User.count({ where: { role: 'owner' } }),
-            Hostel.count(),
-            Payment.sum('amount', { where: { status: 'COMPLETED' } }),
-            User.findAll({
-                where: { created_at: { [Op.gte]: sixMonthsAgo } },
-                attributes: [
-                    [sequelize.fn('date_trunc', 'month', sequelize.col('created_at')), 'month'],
-                    [sequelize.fn('COUNT', sequelize.col('user_id')), 'count']
-                ],
-                group: [sequelize.fn('date_trunc', 'month', sequelize.col('created_at'))],
-                order: [[sequelize.fn('date_trunc', 'month', sequelize.col('created_at')), 'ASC']],
+            const now = new Date();
+            const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+            // Revenue
+            const payments = await Payment.findAll({
+                where: { status: 'COMPLETED' },
+                attributes: ['amount', 'created_at']
+            });
+
+            const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+            const currentMonth = payments
+                .filter(p => new Date(p.created_at) >= startOfCurrentMonth)
+                .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+            const lastMonth = payments
+                .filter(p => {
+                    const d = new Date(p.created_at);
+                    return d >= startOfLastMonth && d < startOfCurrentMonth;
+                })
+                .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+            // Users
+            const allUsers = await User.findAll({ attributes: ['created_at'] });
+            const currentMonthUsers = allUsers.filter(u => new Date(u.created_at) >= startOfCurrentMonth).length;
+            const lastMonthUsers = allUsers.filter(u => {
+                const d = new Date(u.created_at);
+                return d >= startOfLastMonth && d < startOfCurrentMonth;
+            }).length;
+
+            // Booking status for chart
+            const bookingStats = await Booking.findAll({
+                attributes: ['status', [sequelize.fn('COUNT', sequelize.col('booking_id')), 'count']],
+                group: ['status'],
                 raw: true
-            }),
-            Payment.sum('amount', { 
-                where: { status: 'COMPLETED', created_at: { [Op.between]: [startOfLastMonth, startOfCurrentMonth] } } 
-            }),
-            User.count({
-                where: { created_at: { [Op.between]: [startOfLastMonth, startOfCurrentMonth] } }
-            })
-        ]);
+            });
 
-        const currentMonthRevenue = await Payment.sum('amount', {
-            where: { status: 'COMPLETED', created_at: { [Op.gte]: startOfCurrentMonth } }
-        });
-        const currentMonthUsers = await User.count({
-            where: { created_at: { [Op.gte]: startOfCurrentMonth } }
-        });
+            // Payment status
+            const paymentStats = await Payment.findAll({
+                attributes: ['status', [sequelize.fn('COUNT', sequelize.col('payment_id')), 'count']],
+                group: ['status'],
+                raw: true
+            });
 
-        return {
-            metrics: {
-                totalStudents,
-                totalOwners,
-                totalHostels,
-                totalRevenue: Number(totalRevenueResult || 0),
-                revenueGrowth: this.calculateGrowth(Number(currentMonthRevenue || 0), Number(lastMonthRevenue || 0)),
-                userGrowth: this.calculateGrowth(currentMonthUsers, lastMonthUsers)
-            },
-            charts: {
-                growthTrend
-            }
-        };
+            // Ratings
+            const reviewStats = await Review.findAll({
+                attributes: ['rating', [sequelize.fn('COUNT', sequelize.col('review_id')), 'count']],
+                group: ['rating'],
+                raw: true
+            });
+
+            return {
+                metrics: {
+                    totalStudents: Number(totalStudents || 0),
+                    totalOwners: Number(totalOwners || 0),
+                    totalHostels: Number(totalHostels || 0),
+                    totalRevenue: Math.round(totalRevenue),
+                    revenueGrowth: this.calculateGrowth(currentMonth, lastMonth),
+                    userGrowth: this.calculateGrowth(currentMonthUsers, lastMonthUsers),
+                    avgRevenuePerHostel: totalHostels > 0 ? Math.round(totalRevenue / totalHostels) : 0
+                },
+                charts: {
+                    growthTrend: [],
+                    bookingTrend: (bookingStats || []).map(b => ({ status: b.status, count: Number(b.count || 0) })),
+                    paymentStatus: (paymentStats || []).map(p => ({ status: p.status, count: Number(p.count || 0) })),
+                    hostelRatingDistribution: (reviewStats || []).map(r => ({ rating: r.rating, count: Number(r.count || 0) })),
+                    topHostels: []
+                }
+            };
+        } catch (err) {
+            console.error('❌ Admin stats error:', err.message);
+            return {
+                metrics: { totalStudents: 0, totalOwners: 0, totalHostels: 0, totalRevenue: 0, revenueGrowth: 0, userGrowth: 0, avgRevenuePerHostel: 0 },
+                charts: { growthTrend: [], bookingTrend: [], paymentStatus: [], hostelRatingDistribution: [], topHostels: [] }
+            };
+        }
     }
 }
 
