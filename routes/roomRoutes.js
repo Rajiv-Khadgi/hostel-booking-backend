@@ -6,11 +6,8 @@ import {
     updateRoom,
     deleteRoom,
     getRooms,
-    getRoomById,
-    uploadRoomImages,
-    deleteRoomImage
+    getRoomById
 } from '../controllers/roomController.js';
-import { uploadPropertyImage } from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
 
@@ -22,7 +19,5 @@ router.get('/:id', getRoomById);
 router.post('/', authenticate, authorize('owner', 'admin'), createRoom);
 router.put('/:id', authenticate, authorize('owner', 'admin'), updateRoom);
 router.delete('/:id', authenticate, authorize('owner', 'admin'), deleteRoom);
-router.post('/:id/images', authenticate, authorize('owner', 'admin'), uploadPropertyImage.array('images', 10), uploadRoomImages);
-router.delete('/:id/images/:imageId', authenticate, authorize('owner', 'admin'), deleteRoomImage);
 
 export default router;

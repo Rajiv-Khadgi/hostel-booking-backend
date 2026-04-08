@@ -180,11 +180,10 @@ class HostelService {
     async findById(id) {
         return await Hostel.findByPk(id, {
             include: [
-                { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'last_name'] },
+                { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'middle_name', 'last_name', 'profile_image'] },
                 {
                     model: Room,
-                    as: 'rooms',
-                    include: [{ model: Image, as: 'images', where: { entity_type: 'ROOM' }, required: false }]
+                    as: 'rooms'
                 },
                 { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
                 { model: Amenity, as: 'amenities' },

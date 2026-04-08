@@ -103,11 +103,9 @@ export const getRooms = async (req, res) => {
 export const getRoomById = async (req, res) => {
     try {
         const { id } = req.params;
-        const { Image } = await import('../config/database.js');
         const room = await Room.findByPk(id, {
             include: [
-                { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] },
-                { model: Image, as: 'images', where: { entity_type: 'ROOM' }, required: false }
+                { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }
             ]
         });
         if (!room) return res.status(404).json({ error: 'Room not found' });
@@ -119,63 +117,3 @@ export const getRoomById = async (req, res) => {
     }
 };
 
-// Upload Room Images
-export const uploadRoomImages = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const room = await Room.findByPk(id);
-        if (!room) return res.status(404).json({ error: 'Room not found' });
-
-        const hostel = await Hostel.findByPk(room.hostel_id);
-        if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Unauthorized' });
-        }
-
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ error: 'No images uploaded' });
-        }
-
-        const { Image } = await import('../config/database.js');
-
-        const imagesToSave = req.files.map(file => ({
-            image_url: `/uploads/properties/${file.filename}`,
-            entity_type: 'ROOM',
-            entity_id: id,
-            is_cover: false // Default
-        }));
-
-        await Image.bulkCreate(imagesToSave);
-
-        // Return updated images list
-        const updatedImages = await Image.findAll({ where: { entity_type: 'ROOM', entity_id: id } });
-
-        res.json({ success: true, message: 'Images uploaded successfully', images: updatedImages });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-};
-
-// Delete Room Image
-export const deleteRoomImage = async (req, res) => {
-    try {
-        const { id, imageId } = req.params;
-        const room = await Room.findByPk(id);
-        if (!room) return res.status(404).json({ error: 'Room not found' });
-
-        const hostel = await Hostel.findByPk(room.hostel_id);
-        if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Unauthorized' });
-        }
-
-        const { Image } = await import('../config/database.js');
-        const image = await Image.findOne({ where: { image_id: imageId, entity_id: id, entity_type: 'ROOM' } });
-
-        if (!image) return res.status(404).json({ error: 'Image not found' });
-
-        await image.destroy();
-
-        res.json({ success: true, message: 'Image deleted successfully' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-};
