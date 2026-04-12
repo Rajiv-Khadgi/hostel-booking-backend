@@ -5,6 +5,7 @@ import { authorize } from '../middleware/roleMiddleware.js';
 import {
     createHostel,
     updateHostel,
+    getHostelMetadata,
     deleteHostel,
     getHostels,
     getMyHostels,
@@ -33,6 +34,7 @@ router.delete('/:id/save', authenticate, unsaveHostel);
 router.get('/my-hostels', authenticate, authorize('owner', 'admin'), getMyHostels);
 
 // Public route
+router.get('/metadata', getHostelMetadata);
 router.get('/', getHostels);
 router.get('/nearby', getNearbyHostels);
 router.get('/:id', getHostelById);

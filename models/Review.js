@@ -24,6 +24,15 @@ const ReviewModel = (sequelize) => {
             type: DataTypes.INTEGER,
             allowNull: false
         },
+        booking_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
+        status: {
+            type: DataTypes.ENUM('PUBLISHED', 'FLAGGED'),
+            allowNull: false,
+            defaultValue: 'PUBLISHED'
+        },
         reply: {
             type: DataTypes.TEXT,
             allowNull: true
@@ -38,6 +47,22 @@ const ReviewModel = (sequelize) => {
         },
         flag_reason: {
             type: DataTypes.TEXT,
+            allowNull: true
+        },
+        flagged_by: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
+        flagged_at: {
+            type: DataTypes.DATE,
+            allowNull: true
+        },
+        unflagged_by: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
+        unflagged_at: {
+            type: DataTypes.DATE,
             allowNull: true
         }
     }, {

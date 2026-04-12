@@ -25,12 +25,11 @@ class HostelService {
         return this.findById(hostel.hostel_id);
     }
 
-    // Find all hostels with filters
+    // Find all hostels with filters & pagination
     async findAll(query) {
-        const { search, city, minPrice, maxPrice, amenities } = query;
+        const { search, city, minPrice, maxPrice, amenities, page = 1, limit = 12, sortBy, gender_type, rating, beds } = query;
 
-        // 1. Base Filter for Hostel Table
-        const whereClause = { status: 'APPROVED' }; // Only show approved hostels to public
+        const whereClause = { status: 'APPROVED' };
 
         if (search) {
             whereClause[Op.or] = [
@@ -44,64 +43,42 @@ class HostelService {
             whereClause.city = { [Op.iLike]: `%${city}%` };
         }
 
-        // 2. Include Options (Associations)
-        const includeOptions = [
-            {
-                model: User,
-                as: 'owner',
-                attributes: ['user_id', 'first_name', 'last_name', 'email']
-            },
-            {
-                model: Image,
-                as: 'images',
-                where: { entity_type: 'HOSTEL' },
-                required: false // Left join: return hostel even if no images
-            },
-            {
-                model: Review,
-                as: 'reviews',
-                attributes: ['rating'],
-                required: false
-            },
-            {
-                model: Amenity,
-                as: 'amenities',
-                through: { attributes: [] } // Exclude junction table data
-            },
-            {
-                model: Service,
-                as: 'services',
-                through: { attributes: [] }
-            }
-        ];
-
-        // 3. Price Filter (Requires joining Rooms)
-        // Check if hostel has AT LEAST ONE room in the price range
-        if (minPrice || maxPrice) {
-            const priceFilter = {};
-            if (minPrice) priceFilter[Op.gte] = minPrice;
-            if (maxPrice) priceFilter[Op.lte] = maxPrice;
-
-            includeOptions.push({
-                model: Room,
-                as: 'rooms',
-                where: {
-                    price: priceFilter,
-                    status: 'AVAILABLE'
-                },
-                required: true // Inner join: Only return hostels that have matching rooms
-            });
-        } else {
-            // Optional: just include rooms for display info if no filter
-            includeOptions.push({
-                model: Room,
-                as: 'rooms',
-                required: false
-            });
+        if (gender_type) {
+            whereClause.gender_type = gender_type;
         }
 
-        // 4. Amenity Filter
+        const includeOptions = [
+            { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'last_name', 'email'] },
+            { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
+            { model: Review, as: 'reviews', attributes: ['rating'], required: false },
+            { model: Amenity, as: 'amenities', through: { attributes: [] } },
+            { model: Service, as: 'services', through: { attributes: [] } }
+        ];
 
+        // Price & Bed Filter
+        const roomWhere = { status: 'AVAILABLE' };
+        let requireRooms = false;
+
+        if (minPrice || maxPrice) {
+            roomWhere.price = {};
+            if (minPrice) roomWhere.price[Op.gte] = minPrice;
+            if (maxPrice) roomWhere.price[Op.lte] = maxPrice;
+            requireRooms = true;
+        }
+
+        if (beds) {
+            roomWhere.available_beds = { [Op.gte]: Number(beds) };
+            requireRooms = true;
+        }
+
+        includeOptions.push({
+            model: Room,
+            as: 'rooms',
+            where: Object.keys(roomWhere).length > 1 ? roomWhere : { status: 'AVAILABLE' },
+            required: requireRooms
+        });
+
+        // Amenity Filter
         if (amenities) {
             const amenityList = amenities.split(',');
             includeOptions.forEach(inc => {
@@ -112,14 +89,61 @@ class HostelService {
             });
         }
 
-        // Execute Query
-        const hostels = await Hostel.findAll({
+        const allHostels = await Hostel.findAll({
             where: whereClause,
             include: includeOptions,
             order: [['created_at', 'DESC']]
         });
 
-        return hostels;
+        // Calculate stats & apply remaining filters locally for speed
+        let processed = allHostels.map(h => {
+             const json = h.toJSON();
+             const avg_rating = json.reviews?.length ? json.reviews.reduce((a, r) => a + Number(r.rating), 0) / json.reviews.length : 0;
+             const min_price = json.rooms?.length ? Math.min(...json.rooms.map(r => Number(r.price))) : 0;
+             return { ...json, avg_rating, min_price };
+        });
+
+        if (rating) {
+            const minRating = Number(rating);
+            processed = processed.filter(h => h.avg_rating >= minRating);
+        }
+
+        if (sortBy === 'rating') processed.sort((a, b) => b.avg_rating - a.avg_rating);
+        else if (sortBy === 'price_asc') processed.sort((a, b) => a.min_price - b.min_price);
+        else if (sortBy === 'price_desc') processed.sort((a, b) => b.min_price - a.min_price);
+
+        // Paginate
+        const p = parseInt(page) || 1;
+        const l = parseInt(limit) || 12;
+        const startIndex = (p - 1) * l;
+        const endIndex = p * l;
+
+        const paginatedHostels = processed.slice(startIndex, endIndex);
+
+        return {
+            hostels: paginatedHostels,
+            totalItems: processed.length,
+            totalPages: Math.ceil(processed.length / l) || 1,
+            currentPage: p
+        };
+    }
+
+    // Get global metadata (filters)
+    async getMetadata() {
+        const amenities = await Amenity.findAll({
+            attributes: ['name', 'icon'],
+            group: ['name', 'icon']
+        });
+
+        const maxPriceRoom = await Room.findOne({
+            order: [['price', 'DESC']],
+            attributes: ['price']
+        });
+        
+        const price = maxPriceRoom ? Number(maxPriceRoom.price) : 30000;
+        const maxPrice = Math.ceil(price / 500) * 500;
+
+        return { amenities, maxPrice };
     }
 
     // Find nearby hostels

@@ -66,11 +66,22 @@ export const deleteHostel = async (req, res) => {
 };
 
 
+// Get Hostel Metadata (Filters)
+export const getHostelMetadata = async (req, res) => {
+    try {
+        const metadata = await HostelService.getMetadata();
+        res.json({ success: true, ...metadata });
+    } catch (err) {
+        console.error('Get metadata error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 //  Get all Hostels (Public Search)
 export const getHostels = async (req, res) => {
     try {
-        const hostels = await HostelService.findAll(req.query);
-        res.json({ success: true, hostels });
+        const result = await HostelService.findAll(req.query);
+        res.json({ success: true, ...result });
     } catch (err) {
         console.error('Get hostels error:', err);
         res.status(400).json({ error: err.message });
@@ -212,14 +223,14 @@ export const uploadHostelImages = async (req, res) => {
         const { Image } = await import('../config/database.js');
 
         // Check if hostel already has a cover image
-        const existingCover = await Image.findOne({ 
-            where: { entity_type: 'HOSTEL', entity_id: id, is_cover: true } 
+        const existingCover = await Image.findOne({
+            where: { entity_type: 'HOSTEL', entity_id: id, is_cover: true }
         });
 
         const targetCoverIndex = parseInt(req.body.coverIndex) || 0;
 
         const imagesToSave = req.files.map((file, idx) => ({
-            image_url: `/uploads/properties/${file.filename}`,
+            image_url: file.path, // Full Cloudinary URL
             entity_type: 'HOSTEL',
             entity_id: id,
             is_cover: !existingCover && idx === targetCoverIndex ? true : false
@@ -280,12 +291,12 @@ export const setHostelCoverImage = async (req, res) => {
 
         // Reset all images to false
         await Image.update({ is_cover: false }, { where: { entity_id: id, entity_type: 'HOSTEL' } });
-        
+
         // Set selected to true
         image.is_cover = true;
         await image.save();
 
-        const updatedImages = await Image.findAll({ 
+        const updatedImages = await Image.findAll({
             where: { entity_type: 'HOSTEL', entity_id: id },
             order: [['createdAt', 'ASC']]
         });
