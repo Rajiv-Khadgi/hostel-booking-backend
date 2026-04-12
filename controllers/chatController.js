@@ -50,8 +50,8 @@ export const uploadFile = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-        // Generate URL (Ensure static folder is served)
-        const fileUrl = `/uploads/chat/${req.file.filename}`;
+        // Multer-Cloudinary provides path (secure_url) in req.file.path
+        const fileUrl = req.file.path;
         res.json({ success: true, fileUrl });
     } catch (err) {
         res.status(500).json({ error: err.message });

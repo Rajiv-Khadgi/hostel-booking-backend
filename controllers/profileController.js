@@ -49,17 +49,8 @@ export const updateProfile = async (req, res) => {
 
         // Handle Image Upload
         if (req.file) {
-            // Delete old image if it exists and is not the default
-            if (user.profile_image) {
-                const oldPath = path.resolve(user.profile_image);
-                if (fs.existsSync(oldPath)) {
-                    fs.unlink(oldPath, (err) => {
-                        if (err) console.error('Failed to delete old avatar:', err);
-                    });
-                }
-            }
-            // Save relative path (normalized for Windows/Linux compatibility)
-            updateData.profile_image = req.file.path.replace(/\\/g, '/');
+            // Save the Cloudinary URL
+            updateData.profile_image = req.file.path;
         }
 
         await user.update(updateData);
