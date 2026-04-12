@@ -33,7 +33,6 @@ export const updateBookingStatus = async (req, res) => {
         const { status } = req.body;
 
         const booking = await BookingService.updateStatus(bookingId, status, req.user.id, req.user.role);
-
         return res.json({
             success: true,
             message: `Booking ${status.toLowerCase()} successfully`,

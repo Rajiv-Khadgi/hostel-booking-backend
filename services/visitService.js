@@ -1,48 +1,72 @@
-import { Visit, Hostel, User } from '../config/database.js';
+import { Visit, Hostel, User, sequelize } from '../config/database.js';
+import { Op, Transaction } from 'sequelize';
 import { sendEmail } from './emailService.js';
 
 class VisitService {
 
     // Schedule a new visit
 
-    async schedule(data, userId) {
-        const hostel = await Hostel.findByPk(data.hostel_id, {
-            include: { model: User, as: 'owner' }
-        });
-
-        if (!hostel) {
-            throw new Error('Hostel not found');
+    async schedule(data, userId, userRole) {
+        if (userRole !== 'student') {
+            throw new Error('Unauthorized: Only students can schedule visits');
         }
 
-        // Only students can schedule visits
-        if (userId === hostel.user_id) {
-            throw new Error('Owners cannot schedule visits to their own hostels');
+        const visitDate = new Date(data.visit_date);
+        visitDate.setHours(0, 0, 0, 0);
+        const tomorrow = new Date();
+        tomorrow.setHours(0, 0, 0, 0);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        if (visitDate < tomorrow) {
+            throw new Error('Visit date must be at least tomorrow');
         }
 
-        // Prevent duplicate active visit (PENDING or APPROVED)
-        const activeVisit = await Visit.findOne({
-            where: {
-                user_id: userId,
-                hostel_id: data.hostel_id,
-                status: ['REQUESTED', 'APPROVED']
+        const { hostel, visit, student } = await sequelize.transaction(
+            { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE },
+            async (tx) => {
+                const hostel = await Hostel.findByPk(data.hostel_id, {
+                    include: { model: User, as: 'owner' },
+                    transaction: tx,
+                    lock: tx.LOCK.UPDATE
+                });
+
+                if (!hostel) {
+                    throw new Error('Hostel not found');
+                }
+
+                if (userId === hostel.user_id) {
+                    throw new Error('Owners cannot schedule visits to their own hostels');
+                }
+
+                const activeVisit = await Visit.findOne({
+                    where: {
+                        user_id: userId,
+                        hostel_id: data.hostel_id,
+                        status: { [Op.in]: ['REQUESTED', 'APPROVED'] }
+                    },
+                    transaction: tx,
+                    lock: tx.LOCK.UPDATE
+                });
+
+                if (activeVisit) {
+                    throw new Error('You already have an active visit request for this hostel');
+                }
+
+                const student = await User.findByPk(userId, {
+                    attributes: ['first_name', 'last_name', 'email'],
+                    transaction: tx
+                });
+
+                const visit = await Visit.create({
+                    user_id: userId,
+                    hostel_id: data.hostel_id,
+                    visit_date: data.visit_date,
+                    status: 'REQUESTED'
+                }, { transaction: tx });
+
+                return { hostel, visit, student };
             }
-        });
-
-        if (activeVisit) {
-            throw new Error('You already have an active visit request for this hostel');
-        }
-
-        const student = await User.findByPk(userId, {
-            attributes: ['first_name', 'last_name', 'email']
-        });
-
-
-        const visit = await Visit.create({
-            user_id: userId,
-            hostel_id: data.hostel_id,
-            visit_date: data.visit_date,
-            status: 'REQUESTED'
-        });
+        );
 
         // EMAIL to Hostel Owner
         await sendEmail(
@@ -88,6 +112,10 @@ class VisitService {
             throw new Error('Unauthorized');
         }
 
+        if (visit.status !== 'REQUESTED') {
+            throw new Error(`Invalid status transition: ${visit.status} cannot change to ${status}`);
+        }
+
         visit.status = status;
         await visit.save();
 
@@ -113,10 +141,12 @@ class VisitService {
 
         if (userRole === 'student') {
             whereClause.user_id = userId;
-        }
-
-        if (userRole === 'owner') {
+        } else if (userRole === 'owner') {
             whereClause['$hostel.user_id$'] = userId;
+        } else if (userRole === 'admin') {
+            whereClause = {};
+        } else {
+            throw new Error('Unauthorized role');
         }
 
         const visits = await Visit.findAll({
@@ -136,6 +166,49 @@ class VisitService {
         });
 
         return visits;
+    }
+
+    async cancelVisit(visitId, userId) {
+        const visit = await Visit.findByPk(visitId, {
+            include: [
+                { model: Hostel, as: 'hostel' },
+                { model: User, as: 'student' }
+            ]
+        });
+
+        if (!visit) {
+            throw new Error('Visit not found');
+        }
+
+        if (visit.user_id !== userId) {
+            throw new Error('Unauthorized');
+        }
+
+        if (visit.status !== 'REQUESTED') {
+            throw new Error(`Cannot cancel visit with status ${visit.status}`);
+        }
+
+        await visit.destroy();
+
+        const owner = await User.findByPk(visit.hostel.user_id, {
+            attributes: ['email']
+        });
+
+        if (owner?.email) {
+            await sendEmail(
+                owner.email,
+                'Visit Request Cancelled',
+                `
+                    <p>The visit request for hostel <b>${visit.hostel.name}</b>
+                    on <b>${visit.visit_date}</b> has been cancelled by the student.</p>
+                `
+            );
+        }
+
+        return {
+            visit_id: visitId,
+            status: 'CANCELLED'
+        };
     }
 }
 

@@ -44,7 +44,7 @@ const PaymentModel = (sequelize) => {
         },
 
         status: {
-            type: DataTypes.ENUM('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'),
+            type: DataTypes.ENUM('PENDING', 'COMPLETED', 'FAILED'),
             defaultValue: 'PENDING'
         },
 
@@ -56,12 +56,6 @@ const PaymentModel = (sequelize) => {
         metadata: {
             type: DataTypes.JSONB,
             allowNull: true
-        },
-
-        refunded_amount: {
-            type: DataTypes.DECIMAL(10, 2),
-            allowNull: false,
-            defaultValue: 0
         }
 
     }, {

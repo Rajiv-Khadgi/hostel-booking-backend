@@ -30,6 +30,18 @@ class BookingService {
 
         if (!room) throw new Error('Room not found');
 
+        const existingConfirmedBooking = await Booking.findOne({
+            where: {
+                user_id: userId,
+                status: 'CONFIRMED'
+            },
+            attributes: ['booking_id']
+        });
+
+        if (existingConfirmedBooking) {
+            throw new Error('Cannot create new booking request while you have an active confirmed booking.');
+        }
+
         const existingBookingInHostel = await Booking.findOne({
             where: { user_id: userId, status: 'REQUESTED' },
             include: {
