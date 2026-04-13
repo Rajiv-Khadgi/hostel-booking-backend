@@ -1,6 +1,7 @@
 import { Visit, Hostel, User, sequelize } from '../config/database.js';
 import { Op, Transaction } from 'sequelize';
 import { sendEmail } from './emailService.js';
+import NotificationService from './notificationService.js';
 
 class VisitService {
 
@@ -25,10 +26,14 @@ class VisitService {
             { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE },
             async (tx) => {
                 const hostel = await Hostel.findByPk(data.hostel_id, {
-                    include: { model: User, as: 'owner' },
                     transaction: tx,
                     lock: tx.LOCK.UPDATE
                 });
+
+                if (hostel) {
+                    // Populate owner for email later
+                    hostel.owner = await User.findByPk(hostel.user_id, { transaction: tx });
+                }
 
                 if (!hostel) {
                     throw new Error('Hostel not found');
@@ -68,18 +73,16 @@ class VisitService {
             }
         );
 
-        // EMAIL to Hostel Owner
-        await sendEmail(
-            hostel.owner.email,
-            'New Hostel Visit Request',
-            `
-                <h3>New Visit Request</h3>
-                <p><b>Hostel:</b> ${hostel.name}</p>
-                <p><b>Student:</b> ${student.first_name} ${student.last_name}</p>
-                <p><b>Visit Date:</b> ${data.visit_date}</p>
-                <p>Please login to approve or reject this visit.</p>
-            `
-        );
+        // Send Email & Notification
+        await NotificationService.createNotification({
+            recipient_id: hostel.user_id,
+            sender_id: userId,
+            type: 'visit_request',
+            title: 'New Visit Request',
+            message: `${student.first_name} ${student.last_name} requested a visit to ${hostel.name} on ${data.visit_date}`,
+            related_id: visit.visit_id,
+            shouldEmail: true
+        });
 
         return visit;
     }
@@ -119,17 +122,16 @@ class VisitService {
         visit.status = status;
         await visit.save();
 
-        // EMAIL to Student
-        await sendEmail(
-            visit.student.email,
-            `Visit ${status}`,
-            `
-                <p>Your visit request for hostel 
-                <b>${visit.hostel.name}</b> scheduled on 
-                <b>${visit.visit_date}</b> has been 
-                <b>${status.toLowerCase()}</b>.</p>
-            `
-        );
+        // Send Email & Notification
+        await NotificationService.createNotification({
+            recipient_id: visit.user_id,
+            sender_id: userId,
+            type: `visit_${status.toLowerCase()}`,
+            title: `Visit ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
+            message: `Your visit request for ${visit.hostel.name} on ${visit.visit_date} has been ${status.toLowerCase()}.`,
+            related_id: visit.visit_id,
+            shouldEmail: true
+        });
 
         return visit;
     }
@@ -190,20 +192,16 @@ class VisitService {
 
         await visit.destroy();
 
-        const owner = await User.findByPk(visit.hostel.user_id, {
-            attributes: ['email']
+        // Notify Owner
+        await NotificationService.createNotification({
+            recipient_id: visit.hostel.user_id,
+            sender_id: userId,
+            type: 'visit_cancelled',
+            title: 'Visit Request Cancelled',
+            message: `The visit request for ${visit.hostel.name} on ${visit.visit_date} has been cancelled by the student.`,
+            related_id: visitId,
+            shouldEmail: false // Typically don't email for cancellation unless it's very close to the time
         });
-
-        if (owner?.email) {
-            await sendEmail(
-                owner.email,
-                'Visit Request Cancelled',
-                `
-                    <p>The visit request for hostel <b>${visit.hostel.name}</b>
-                    on <b>${visit.visit_date}</b> has been cancelled by the student.</p>
-                `
-            );
-        }
 
         return {
             visit_id: visitId,

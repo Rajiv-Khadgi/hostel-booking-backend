@@ -1,6 +1,7 @@
 import { Booking, Room, Hostel, User, Payment } from '../config/database.js';
 import { Op } from 'sequelize';
 import { sendEmail } from './emailService.js';
+import NotificationService from './notificationService.js';
 
 class BookingService {
 
@@ -20,6 +21,12 @@ class BookingService {
     }
 
     async create(data, userId) {
+        const student = await User.findByPk(userId, {
+            attributes: ['user_id', 'first_name', 'last_name']
+        });
+
+        if (!student) throw new Error('Student not found');
+
         const room = await Room.findByPk(data.room_id, {
             include: {
                 model: Hostel,
@@ -83,18 +90,18 @@ class BookingService {
             status: 'REQUESTED'
         });
 
-        const student = await User.findByPk(userId);
-        await sendEmail(
-            room.hostel.owner.email,
-            'New Booking Request',
-            `
-                <h3>New Booking Request</h3>
-                <p><b>Hostel:</b> ${room.hostel.name}</p>
-                <p><b>Room Number:</b> ${room.room_number || room.room_id}</p>
-                <p><b>Student:</b> ${student.first_name} ${student.last_name}</p>
-                <p><b>Duration:</b> ${data.start_date} → ${data.end_date}</p>
-            `
-        );
+        // Send Email & Notification
+        const studentName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || 'A student';
+
+        await NotificationService.createNotification({
+            recipient_id: room.hostel.user_id,
+            sender_id: userId,
+            type: 'booking_request',
+            title: 'New Booking Request',
+            message: `${studentName} requested to book room ${room.room_number || room.room_id} in ${room.hostel.name}`,
+            related_id: booking.booking_id,
+            shouldEmail: true
+        });
 
         return booking;
     }
@@ -129,16 +136,16 @@ class BookingService {
         booking.status = status;
         await booking.save();
 
-        const student = await User.findByPk(booking.user_id);
-        await sendEmail(
-            student.email,
-            `Booking ${status}`,
-            `
-                <p>Your booking for room <b>${booking.room.room_number || booking.room.room_id}</b> 
-                in hostel <b>${booking.room.hostel.name}</b> has been 
-                <b>${status.toLowerCase()}</b>.</p>
-            `
-        );
+        // Send Email & Notification
+        await NotificationService.createNotification({
+            recipient_id: booking.user_id,
+            sender_id: userId,
+            type: `booking_${status.toLowerCase()}`,
+            title: `Booking ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
+            message: `Your booking for room ${booking.room.room_number || booking.room.room_id} in ${booking.room.hostel.name} has been ${status.toLowerCase()}.`,
+            related_id: booking.booking_id,
+            shouldEmail: true
+        });
 
         return booking;
     }

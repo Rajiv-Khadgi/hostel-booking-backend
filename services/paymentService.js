@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Booking, Payment, Room, Hostel, User, sequelize } from '../config/database.js';
 import { Op } from 'sequelize';
+import NotificationService from './notificationService.js';
 
 const PAYMENT_SESSION_TTL_MS = 15 * 60 * 1000;
 const PAYMENT_TYPES = new Set(['FULL', 'DEPOSIT', 'MONTHLY', 'BALANCE']);
@@ -132,7 +133,15 @@ class PaymentService {
         }
 
         const lockedBooking = await Booking.findByPk(lockedPayment.booking_id, {
-            include: [{ model: Room, as: 'room', required: true }],
+            include: [
+                {
+                    model: Room,
+                    as: 'room',
+                    required: true,
+                    include: [{ model: Hostel, as: 'hostel', required: true }]
+                },
+                { model: User, as: 'student', required: true }
+            ],
             transaction: tx,
             lock: tx.LOCK.UPDATE
         });
@@ -149,6 +158,22 @@ class PaymentService {
             { status: 'FAILED', metadata: error ? { ...payload, error } : payload },
             { transaction: tx }
         );
+
+        // Notify Student
+        const booking = await Booking.findByPk(payment.booking_id, {
+            include: [{ model: Room, as: 'room', include: [{ model: Hostel, as: 'hostel' }] }]
+        });
+
+        if (booking) {
+            await NotificationService.createNotification({
+                recipient_id: booking.user_id,
+                type: 'payment_failed',
+                title: 'Payment Failed',
+                message: `Your payment of Rs. ${payment.amount} for ${booking.room.hostel.name} has failed.`,
+                related_id: booking.booking_id,
+                shouldEmail: false // Typically don't email for every failure unless it's critical
+            });
+        }
     }
 
     async cancelCompetingBookings(booking, tx) {
@@ -202,6 +227,51 @@ class PaymentService {
         );
 
         await this.cancelCompetingBookings(lockedBooking, tx);
+
+        // Prepare notification context for post-commit dispatch.
+        const student = lockedBooking.student || await User.findByPk(lockedBooking.user_id);
+        const hostel = lockedBooking.room?.hostel || await Hostel.findByPk(lockedBooking.room.hostel_id);
+        const hostelName = hostel?.name || 'your hostel';
+        const studentName = [student?.first_name, student?.last_name].filter(Boolean).join(' ').trim() || 'A student';
+        const roomLabel = lockedBooking.room.room_number || lockedBooking.room.room_id;
+
+        return {
+            bookingId: lockedBooking.booking_id,
+            studentRecipientId: lockedBooking.user_id,
+            ownerRecipientId: hostel?.user_id || null,
+            hostelName,
+            studentName,
+            roomLabel,
+            amount: lockedPayment.amount
+        };
+    }
+
+    async dispatchSuccessfulPaymentNotifications(context) {
+        const tasks = [
+            NotificationService.createNotification({
+                recipient_id: context.studentRecipientId,
+                type: 'payment_success',
+                title: 'Payment Successful',
+                message: `Your payment of Rs. ${context.amount} for ${context.hostelName} was successful. Your booking is now CONFIRMED.`,
+                related_id: context.bookingId,
+                shouldEmail: true
+            })
+        ];
+
+        if (context.ownerRecipientId) {
+            tasks.push(
+                NotificationService.createNotification({
+                    recipient_id: context.ownerRecipientId,
+                    type: 'booking_confirmed',
+                    title: 'New Confirmed Booking',
+                    message: `Booking for room ${context.roomLabel} in ${context.hostelName} has been confirmed by ${context.studentName}.`,
+                    related_id: context.bookingId,
+                    shouldEmail: true
+                })
+            );
+        }
+
+        await Promise.allSettled(tasks);
     }
 
     async initiatePayment(bookingId, paymentType, amount, months, userId) {
@@ -295,9 +365,15 @@ class PaymentService {
                     return { success: false, message: 'Amount mismatch' };
                 }
 
-                await this.applySuccessfulPayment(lockedPayment, lockedBooking, response.data, tx);
+                const notificationContext = await this.applySuccessfulPayment(lockedPayment, lockedBooking, response.data, tx);
 
                 await tx.commit();
+
+                setImmediate(() => {
+                    this.dispatchSuccessfulPaymentNotifications(notificationContext)
+                        .catch((notifyErr) => console.error('Post-payment notification error:', notifyErr?.message || notifyErr));
+                });
+
                 return { success: true, message: 'Verified and Confirmed' };
             } catch (txErr) {
                 await tx.rollback();

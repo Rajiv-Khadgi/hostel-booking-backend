@@ -18,6 +18,7 @@ export const createBooking = async (req, res) => {
     } catch (err) {
         // Handle specific error types if needed, or generic
         if (err.message === 'Room not found') return res.status(404).json({ error: err.message });
+        if (err.message === 'Student not found') return res.status(404).json({ error: err.message });
         if (err.message.includes('already')) return res.status(409).json({ error: err.message });
         if (err.message.includes('fully booked')) return res.status(409).json({ error: err.message });
 
