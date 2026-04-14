@@ -31,7 +31,7 @@ class NotificationService {
 
             // 3. Send Email (if important event and shouldEmail is true)
             if (shouldEmail) {
-                const recipient = await User.findByPk(recipient_id);
+                const recipient = await User.findByPk(recipient_id, { attributes: ['email'] });
                 if (recipient && recipient.email) {
                     await emailService.sendEmail(
                         recipient.email,

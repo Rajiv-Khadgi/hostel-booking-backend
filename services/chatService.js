@@ -108,14 +108,16 @@ class ChatService {
                     { participant2_id: normalizedUserId }
                 ]
             },
+            attributes: ['conversation_id', 'participant1_id', 'participant2_id', 'last_message_at'],
             include: [
                 { model: User, as: 'participant1', attributes: ['user_id', 'first_name', 'last_name', 'profile_image', 'role'] },
                 { model: User, as: 'participant2', attributes: ['user_id', 'first_name', 'last_name', 'profile_image', 'role'] },
                 {
                     model: Message,
                     as: 'messages',
+                    attributes: ['content', 'created_at', 'sender_id'],
                     limit: 1,
-                    order: [['created_at', 'DESC']] // Fetch last message for preview
+                    order: [['created_at', 'DESC']]
                 }
             ],
             order: [['last_message_at', 'DESC']]
@@ -163,8 +165,9 @@ class ChatService {
 
         return await Message.findAll({
             where: { conversation_id: conversationId },
+            attributes: ['message_id', 'content', 'attachment_url', 'is_read', 'sender_id', 'created_at'],
             include: [
-                { model: User, as: 'sender', attributes: ['user_id', 'first_name', 'last_name'] }
+                { model: User, as: 'sender', attributes: ['user_id', 'first_name', 'last_name', 'profile_image'] }
             ],
             order: [['created_at', 'ASC']]
         });

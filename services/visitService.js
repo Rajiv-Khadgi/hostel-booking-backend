@@ -26,13 +26,14 @@ class VisitService {
             { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE },
             async (tx) => {
                 const hostel = await Hostel.findByPk(data.hostel_id, {
+                    attributes: ['hostel_id', 'user_id', 'name'],
                     transaction: tx,
                     lock: tx.LOCK.UPDATE
                 });
 
                 if (hostel) {
                     // Populate owner for email later
-                    hostel.owner = await User.findByPk(hostel.user_id, { transaction: tx });
+                    hostel.owner = await User.findByPk(hostel.user_id, { attributes: ['email'], transaction: tx });
                 }
 
                 if (!hostel) {
@@ -98,11 +99,13 @@ class VisitService {
             include: [
                 {
                     model: Hostel,
-                    as: 'hostel'
+                    as: 'hostel',
+                    attributes: ['hostel_id', 'user_id', 'name']
                 },
                 {
                     model: User,
-                    as: 'student'
+                    as: 'student',
+                    attributes: ['user_id', 'first_name', 'last_name', 'email']
                 }
             ]
         });
@@ -156,12 +159,13 @@ class VisitService {
             include: [
                 {
                     model: Hostel,
-                    as: 'hostel'
+                    as: 'hostel',
+                    attributes: ['hostel_id', 'name', 'city', 'area']
                 },
                 {
                     model: User,
                     as: 'student',
-                    attributes: ['user_id', 'first_name', 'last_name', 'email']
+                    attributes: ['user_id', 'first_name', 'last_name', 'email', 'profile_image']
                 }
             ],
             order: [['created_at', 'DESC']]
@@ -173,8 +177,8 @@ class VisitService {
     async cancelVisit(visitId, userId) {
         const visit = await Visit.findByPk(visitId, {
             include: [
-                { model: Hostel, as: 'hostel' },
-                { model: User, as: 'student' }
+                { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'user_id', 'name'] },
+                { model: User, as: 'student', attributes: ['user_id', 'first_name', 'last_name'] }
             ]
         });
 

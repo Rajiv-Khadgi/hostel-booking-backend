@@ -48,11 +48,17 @@ class HostelService {
         }
 
         const includeOptions = [
-            { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'last_name', 'email'] },
-            { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
+            { model: User, as: 'owner', attributes: ['first_name', 'last_name'] },
+            { 
+                model: Image, 
+                as: 'images', 
+                where: { entity_type: 'HOSTEL', is_cover: true }, 
+                attributes: ['image_url'],
+                required: false 
+            },
             { model: Review, as: 'reviews', attributes: ['rating'], required: false },
-            { model: Amenity, as: 'amenities', through: { attributes: [] } },
-            { model: Service, as: 'services', through: { attributes: [] } }
+            { model: Amenity, as: 'amenities', attributes: ['name', 'icon'], through: { attributes: [] } },
+            { model: Service, as: 'services', attributes: ['name', 'icon'], through: { attributes: [] } }
         ];
 
         // Price & Bed Filter
@@ -75,6 +81,7 @@ class HostelService {
             model: Room,
             as: 'rooms',
             where: Object.keys(roomWhere).length > 1 ? roomWhere : { status: 'AVAILABLE' },
+            attributes: ['price', 'available_beds'],
             required: requireRooms
         });
 
@@ -91,6 +98,7 @@ class HostelService {
 
         const allHostels = await Hostel.findAll({
             where: whereClause,
+            attributes: ['hostel_id', 'name', 'city', 'area', 'gender_type', 'latitude', 'longitude'],
             include: includeOptions,
             order: [['created_at', 'DESC']]
         });
@@ -166,11 +174,9 @@ class HostelService {
         )`;
 
         return await Hostel.findAll({
-            attributes: {
-                include: [
-                    [sequelize.literal(haversine), 'distance']
-                ]
-            },
+            attributes: ['hostel_id', 'name', 'latitude', 'longitude', 'city', 'area', 'gender_type',
+                [sequelize.literal(haversine), 'distance']
+            ],
             where: {
                 status: 'APPROVED',
                 latitude: { [Op.not]: null },
@@ -178,8 +184,14 @@ class HostelService {
                 [Op.and]: sequelize.where(sequelize.literal(haversine), '<=', radius)
             },
             include: [
-                { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
-                { model: Room, as: 'rooms', attributes: ['price'] },
+                { 
+                    model: Image, 
+                    as: 'images', 
+                    where: { entity_type: 'HOSTEL', is_cover: true }, 
+                    attributes: ['image_url'],
+                    required: false 
+                },
+                { model: Room, as: 'rooms', attributes: ['room_id', 'price'] },
                 { model: Review, as: 'reviews', attributes: ['rating'] }
             ],
             order: sequelize.literal('distance ASC')
@@ -190,11 +202,18 @@ class HostelService {
     async findMyHostels(userId) {
         return await Hostel.findAll({
             where: { user_id: userId },
+            attributes: ['hostel_id', 'name', 'city', 'area', 'status', 'created_at'],
             include: [
-                { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
-                { model: Room, as: 'rooms' },
-                { model: Amenity, as: 'amenities', through: { attributes: [] } },
-                { model: Service, as: 'services', through: { attributes: [] } }
+                { 
+                    model: Image, 
+                    as: 'images', 
+                    where: { entity_type: 'HOSTEL', is_cover: true }, 
+                    attributes: ['image_url'],
+                    required: false 
+                },
+                { model: Room, as: 'rooms', attributes: ['room_id', 'room_number', 'status'] },
+                { model: Amenity, as: 'amenities', attributes: ['name'], through: { attributes: [] } },
+                { model: Service, as: 'services', attributes: ['name'], through: { attributes: [] } }
             ],
             order: [['created_at', 'DESC']]
         });
@@ -204,18 +223,26 @@ class HostelService {
     async findById(id) {
         return await Hostel.findByPk(id, {
             include: [
-                { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'middle_name', 'last_name', 'profile_image'] },
+                { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'middle_name', 'last_name', 'profile_image', 'phone', 'email'] },
                 {
                     model: Room,
-                    as: 'rooms'
+                    as: 'rooms',
+                    attributes: ['room_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status']
                 },
-                { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
-                { model: Amenity, as: 'amenities' },
-                { model: Service, as: 'services' },
+                { 
+                    model: Image, 
+                    as: 'images', 
+                    where: { entity_type: 'HOSTEL' }, 
+                    attributes: ['image_id', 'image_url', 'is_cover'],
+                    required: false 
+                },
+                { model: Amenity, as: 'amenities', attributes: ['name', 'icon'], through: { attributes: [] } },
+                { model: Service, as: 'services', attributes: ['name', 'icon'], through: { attributes: [] } },
                 {
                     model: Review,
                     as: 'reviews',
-                    include: [{ model: User, as: 'reviewer', attributes: ['first_name', 'last_name'] }]
+                    attributes: ['review_id', 'rating', 'comments', 'reply', 'reply_date', 'created_at'],
+                    include: [{ model: User, as: 'reviewer', attributes: ['first_name', 'last_name', 'profile_image'] }]
                 }
             ]
         });
@@ -272,9 +299,16 @@ class HostelService {
                 {
                     model: Hostel,
                     as: 'hostel',
+                    attributes: ['hostel_id', 'name', 'city', 'area', 'gender_type', 'latitude', 'longitude'],
                     include: [
-                        { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
-                        { model: Room, as: 'rooms', attributes: ['price'] } // To show "Starts from" price
+                        { 
+                            model: Image, 
+                            as: 'images', 
+                            where: { entity_type: 'HOSTEL', is_cover: true }, 
+                            attributes: ['image_url'],
+                            required: false 
+                        },
+                        { model: Room, as: 'rooms', attributes: ['price', 'available_beds'] } 
                     ]
                 }
             ]

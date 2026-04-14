@@ -25,7 +25,8 @@ class ReviewService {
         const review = await Review.findByPk(reviewId, {
             include: {
                 model: Hostel,
-                as: 'hostel'
+                as: 'hostel',
+                attributes: ['hostel_id', 'user_id', 'name']
             }
         });
 
@@ -88,7 +89,7 @@ class ReviewService {
     // Get reviews for a hostel
     async getHostelReviews(hostelId, { includeHidden = false, requesterId = null, requesterRole = null } = {}) {
         if (includeHidden && requesterRole === 'owner') {
-            const hostel = await Hostel.findByPk(hostelId);
+            const hostel = await Hostel.findByPk(hostelId, { attributes: ['user_id'] });
             if (!hostel) {
                 throw new Error('Hostel not found');
             }

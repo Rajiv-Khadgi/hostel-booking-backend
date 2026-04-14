@@ -38,7 +38,10 @@ class PaymentService {
 
     async getBookingForPayment(bookingId) {
         return await Booking.findByPk(bookingId, {
-            include: [{ model: Room, as: 'room' }, { model: User, as: 'student' }]
+            include: [
+                { model: Room, as: 'room', attributes: ['room_id', 'room_number', 'price'] }, 
+                { model: User, as: 'student', attributes: ['user_id', 'first_name', 'last_name', 'email', 'phone'] }
+            ]
         });
     }
 
@@ -117,7 +120,12 @@ class PaymentService {
     async fetchPaymentContextByPidx(pidx) {
         return await Payment.findOne({
             where: { pidx },
-            include: [{ model: Booking, as: 'booking', include: [{ model: Room, as: 'room' }] }]
+            include: [{ 
+                model: Booking, 
+                as: 'booking', 
+                attributes: ['booking_id', 'user_id', 'status', 'payment_status'],
+                include: [{ model: Room, as: 'room', attributes: ['room_id', 'room_number', 'price', 'hostel_id'] }] 
+            }]
         });
     }
 
@@ -133,14 +141,16 @@ class PaymentService {
         }
 
         const lockedBooking = await Booking.findByPk(lockedPayment.booking_id, {
+            attributes: ['booking_id', 'user_id', 'room_id', 'months', 'status', 'payment_status'],
             include: [
                 {
                     model: Room,
                     as: 'room',
+                    attributes: ['room_id', 'room_number', 'price', 'hostel_id'],
                     required: true,
-                    include: [{ model: Hostel, as: 'hostel', required: true }]
+                    include: [{ model: Hostel, as: 'hostel', attributes: ['hostel_id', 'user_id', 'name'], required: true }]
                 },
-                { model: User, as: 'student', required: true }
+                { model: User, as: 'student', attributes: ['user_id', 'first_name', 'last_name'], required: true }
             ],
             transaction: tx,
             lock: tx.LOCK.UPDATE
@@ -161,7 +171,8 @@ class PaymentService {
 
         // Notify Student
         const booking = await Booking.findByPk(payment.booking_id, {
-            include: [{ model: Room, as: 'room', include: [{ model: Hostel, as: 'hostel' }] }]
+            attributes: ['booking_id', 'user_id'],
+            include: [{ model: Room, as: 'room', attributes: ['room_id'], include: [{ model: Hostel, as: 'hostel', attributes: ['name'] }] }]
         });
 
         if (booking) {
@@ -229,8 +240,8 @@ class PaymentService {
         await this.cancelCompetingBookings(lockedBooking, tx);
 
         // Prepare notification context for post-commit dispatch.
-        const student = lockedBooking.student || await User.findByPk(lockedBooking.user_id);
-        const hostel = lockedBooking.room?.hostel || await Hostel.findByPk(lockedBooking.room.hostel_id);
+        const student = lockedBooking.student || await User.findByPk(lockedBooking.user_id, { attributes: ['first_name', 'last_name'] });
+        const hostel = lockedBooking.room?.hostel || await Hostel.findByPk(lockedBooking.room.hostel_id, { attributes: ['user_id', 'name'] });
         const hostelName = hostel?.name || 'your hostel';
         const studentName = [student?.first_name, student?.last_name].filter(Boolean).join(' ').trim() || 'A student';
         const roomLabel = lockedBooking.room.room_number || lockedBooking.room.room_id;
@@ -391,7 +402,8 @@ class PaymentService {
             include: [{
                 model: Booking,
                 as: 'booking',
-                include: [{ model: Room, as: 'room', include: [{ model: Hostel, as: 'hostel' }] }]
+                attributes: ['booking_id', 'user_id', 'payment_status', 'status']
+                // Notice we omitted Room and Hostel entirely because getPaymentStatus only reads status/user_id from the booking entity
             }]
         });
 
@@ -421,7 +433,8 @@ class PaymentService {
                 status: 'APPROVED',
                 updatedAt: { [Op.lt]: twentyFourHoursAgo }
             },
-            include: [{ model: Room, as: 'room' }]
+            attributes: ['booking_id', 'room_id'],
+            include: [{ model: Room, as: 'room', attributes: ['room_id', 'available_beds', 'status'] }]
         });
 
         for (let booking of expired) {
@@ -469,7 +482,13 @@ class PaymentService {
                 model: Booking,
                 as: 'booking',
                 where: { user_id: userId },
-                include: [{ model: Room, as: 'room', include: [{ model: Hostel, as: 'hostel' }] }]
+                attributes: ['booking_id', 'status', 'start_date', 'end_date'],
+                include: [{ 
+                    model: Room, 
+                    as: 'room', 
+                    attributes: ['room_id', 'room_number', 'price'],
+                    include: [{ model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name', 'city', 'area'] }] 
+                }]
             }],
             order: [['createdAt', 'DESC']]
         });
@@ -480,17 +499,21 @@ class PaymentService {
             include: [{
                 model: Booking,
                 as: 'booking',
+                attributes: ['booking_id', 'status', 'start_date', 'end_date'],
                 include: [{
                     model: Room,
                     as: 'room',
+                    attributes: ['room_id', 'room_number', 'price'],
                     include: [{
                         model: Hostel,
                         as: 'hostel',
-                        where: { user_id: ownerId }
+                        where: { user_id: ownerId },
+                        attributes: ['hostel_id', 'name']
                     }]
                 }, {
                     model: User,
-                    as: 'student'
+                    as: 'student',
+                    attributes: ['user_id', 'first_name', 'last_name', 'email']
                 }]
             }],
             order: [['createdAt', 'DESC']]
@@ -502,13 +525,16 @@ class PaymentService {
             include: [{
                 model: Booking,
                 as: 'booking',
+                attributes: ['booking_id', 'status', 'start_date', 'end_date'],
                 include: [{
                     model: Room,
                     as: 'room',
-                    include: [{ model: Hostel, as: 'hostel' }]
+                    attributes: ['room_id', 'room_number', 'price'],
+                    include: [{ model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }]
                 }, {
                     model: User,
-                    as: 'student'
+                    as: 'student',
+                    attributes: ['user_id', 'first_name', 'last_name', 'email']
                 }]
             }],
             order: [['createdAt', 'DESC']]
