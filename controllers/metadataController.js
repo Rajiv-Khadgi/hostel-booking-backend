@@ -3,7 +3,9 @@ import { Amenity, Service } from '../config/database.js';
 // Get all Amenities
 export const getAmenities = async (req, res) => {
     try {
-        const amenities = await Amenity.findAll();
+        const amenities = await Amenity.findAll({
+            attributes: ['amenity_id', 'name', 'icon']
+        });
         res.json({ success: true, amenities });
     } catch (err) {
         console.error('Get amenities error:', err);
@@ -14,7 +16,9 @@ export const getAmenities = async (req, res) => {
 // Get all Services
 export const getServices = async (req, res) => {
     try {
-        const services = await Service.findAll();
+        const services = await Service.findAll({
+            attributes: ['service_id', 'name', 'icon']
+        });
         res.json({ success: true, services });
     } catch (err) {
         console.error('Get services error:', err);

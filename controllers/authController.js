@@ -86,11 +86,7 @@ export const registerStudent = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-                profile_image: user.profile_image,
-                dob: user.dob,
-                gender: user.gender,
-                institute: user.institute,
-                recommendations: user.recommendations
+                profile_image: user.profile_image
             },
             accessToken
         });
@@ -156,11 +152,7 @@ export const registerOwner = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-                profile_image: user.profile_image,
-                dob: user.dob,
-                gender: user.gender,
-                institute: user.institute,
-                recommendations: user.recommendations
+                profile_image: user.profile_image
             },
             accessToken
         });
@@ -214,11 +206,7 @@ export const login = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-                profile_image: user.profile_image,
-                dob: user.dob,
-                gender: user.gender,
-                institute: user.institute,
-                recommendations: user.recommendations
+                profile_image: user.profile_image
             },
             accessToken
         });
@@ -299,7 +287,10 @@ export const refresh = async (req, res) => {
         const refreshToken = req.cookies.refreshToken;
         if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
 
-        const user = await User.findOne({ where: { refreshToken } });
+        const user = await User.findOne({ 
+            where: { refreshToken },
+            attributes: ['user_id', 'role', 'first_name', 'last_name', 'email']
+        });
         if (!user) return res.status(401).json({ error: 'Invalid refresh token' });
 
         const accessToken = generateTokens.access(user);

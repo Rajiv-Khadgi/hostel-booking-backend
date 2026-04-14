@@ -90,6 +90,7 @@ export const deleteRoom = async (req, res) => {
 export const getRooms = async (req, res) => {
     try {
         const rooms = await Room.findAll({
+            attributes: ['room_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status', 'hostel_id'],
             include: { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }
         });
         res.json({ success: true, rooms });
@@ -104,6 +105,7 @@ export const getRoomById = async (req, res) => {
     try {
         const { id } = req.params;
         const room = await Room.findByPk(id, {
+            attributes: ['room_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status', 'hostel_id'],
             include: [
                 { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }
             ]

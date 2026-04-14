@@ -21,7 +21,7 @@ export const getAllUsers = async (req, res) => {
 
         const users = await User.findAll({
             where,
-            attributes: { exclude: ['password_hash', 'refreshToken'] },
+            attributes: ['user_id', 'first_name', 'last_name', 'email', 'role', 'phone', 'status', 'created_at'],
             order: [['created_at', 'DESC']]
         });
 
@@ -57,16 +57,18 @@ export const updateUserStatus = async (req, res) => {
 export const getAllHostels = async (req, res) => {
     try {
         const hostels = await Hostel.findAll({
+            attributes: ['hostel_id', 'name', 'city', 'area', 'status', 'gender_type', 'created_at'],
             include: [
                 {
                     model: User,
                     as: 'owner',
-                    attributes: ['first_name', 'last_name', 'email']
+                    attributes: ['user_id', 'first_name', 'last_name', 'email']
                 },
                 {
                     model: Image,
                     as: 'images',
-                    where: { entity_type: 'HOSTEL' },
+                    where: { entity_type: 'HOSTEL', is_cover: true },
+                    attributes: ['image_url'],
                     required: false
                 }
             ],
@@ -121,12 +123,12 @@ export const getAllReviews = async (req, res) => {
                 {
                     model: User,
                     as: 'reviewer',
-                    attributes: ['first_name', 'last_name', 'email']
+                    attributes: ['user_id', 'first_name', 'last_name', 'email']
                 },
                 {
                     model: Hostel,
                     as: 'hostel',
-                    attributes: ['name']
+                    attributes: ['hostel_id', 'name']
                 }
             ],
             order: [['created_at', 'DESC']]
