@@ -1,7 +1,6 @@
-// middleware/roleMiddleware.js
 
 /**
- * Middleware to authorize users based on role(s)
+ * Middleware to authorize users
  * Usage: authorizeRoles('admin'), authorizeRoles('student', 'owner')
  */
 export const authorize = (...allowedRoles) => {

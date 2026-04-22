@@ -10,6 +10,15 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+    console.log(`[CLOUDINARY] Configured with cloud_name: ${process.env.CLOUDINARY_CLOUD_NAME}`);
+} else {
+    console.error('[CLOUDINARY] Configuration incomplete!');
+    if (!process.env.CLOUDINARY_CLOUD_NAME) console.error(' - Missing CLOUDINARY_CLOUD_NAME');
+    if (!process.env.CLOUDINARY_API_KEY) console.error(' - Missing CLOUDINARY_API_KEY');
+    if (!process.env.CLOUDINARY_API_SECRET) console.error(' - Missing CLOUDINARY_API_SECRET');
+}
+
 const imageFilter = (req, file, cb) => {
     const filetypes = /jpeg|jpg|png|gif|webp/;
     const mimetype = filetypes.test(file.mimetype);

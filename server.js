@@ -1,6 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
+import './config/env.js';
 import http from 'http';
 import cron from 'node-cron';
 import { Server } from 'socket.io';
@@ -31,8 +29,8 @@ const io = new Server(server, {
 // Link io to utility
 socketUtil.initSocket(io);
 
-// Online User Tracking (Now managed via utility)
-// const onlineUsers = new Map(); // deleted
+
+
 
 // Socket Logic
 io.on('connection', (socket) => {
@@ -127,7 +125,7 @@ async function startServer() {
     try {
         await initDB();
 
-        // Run booking expiry checks hourly (REQUESTED: 7 days, APPROVED unpaid: 24 hours).
+        // Run booking expiry checks hourly.
         cron.schedule('0 * * * *', async () => {
             try {
                 const result = await PaymentService.runBookingExpiryJobs();
