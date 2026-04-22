@@ -1,4 +1,5 @@
 .env
 /scripts
-/uploads
+uploads/
 node_modules/
+tests/
