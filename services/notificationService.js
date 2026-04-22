@@ -3,9 +3,6 @@ import { emitToUser } from '../utils/socket.js';
 import * as emailService from './emailService.js';
 
 class NotificationService {
-    /**
-     * Create a notification and deliver it via Socket and Email (if applicable)
-     */
     async createNotification({
         recipient_id,
         sender_id = null,

@@ -1,4 +1,4 @@
-import { Visit, Hostel, User, sequelize } from '../config/database.js';
+import { Visit, Hostel, User, Image, sequelize } from '../config/database.js';
 import { Op, Transaction } from 'sequelize';
 import { sendEmail } from './emailService.js';
 import NotificationService from './notificationService.js';
@@ -26,14 +26,17 @@ class VisitService {
             { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE },
             async (tx) => {
                 const hostel = await Hostel.findByPk(data.hostel_id, {
-                    attributes: ['hostel_id', 'user_id', 'name'],
                     transaction: tx,
-                    lock: tx.LOCK.UPDATE
+                    lock: tx.LOCK.UPDATE,
+                    attributes: ['hostel_id', 'user_id', 'name']
                 });
 
                 if (hostel) {
                     // Populate owner for email later
-                    hostel.owner = await User.findByPk(hostel.user_id, { attributes: ['email'], transaction: tx });
+                    hostel.owner = await User.findByPk(hostel.user_id, { 
+                        transaction: tx,
+                        attributes: ['user_id', 'first_name', 'last_name', 'email']
+                    });
                 }
 
                 if (!hostel) {
@@ -59,8 +62,8 @@ class VisitService {
                 }
 
                 const student = await User.findByPk(userId, {
-                    attributes: ['first_name', 'last_name', 'email'],
-                    transaction: tx
+                    transaction: tx,
+                    attributes: ['user_id', 'first_name', 'last_name']
                 });
 
                 const visit = await Visit.create({
@@ -100,7 +103,14 @@ class VisitService {
                 {
                     model: Hostel,
                     as: 'hostel',
-                    attributes: ['hostel_id', 'user_id', 'name']
+                    attributes: ['hostel_id', 'user_id', 'name'],
+                    include: [{ 
+                        model: Image, 
+                        as: 'images', 
+                        where: { entity_type: 'HOSTEL', is_cover: true }, 
+                        attributes: ['image_url'],
+                        required: false 
+                    }]
                 },
                 {
                     model: User,
@@ -160,12 +170,19 @@ class VisitService {
                 {
                     model: Hostel,
                     as: 'hostel',
-                    attributes: ['hostel_id', 'name', 'city', 'area']
+                    attributes: ['hostel_id', 'user_id', 'name', 'city', 'area'],
+                    include: [{ 
+                        model: Image, 
+                        as: 'images', 
+                        where: { entity_type: 'HOSTEL', is_cover: true }, 
+                        attributes: ['image_url'],
+                        required: false 
+                    }]
                 },
                 {
                     model: User,
                     as: 'student',
-                    attributes: ['user_id', 'first_name', 'last_name', 'email', 'profile_image']
+                    attributes: ['user_id', 'first_name', 'last_name', 'profile_image']
                 }
             ],
             order: [['created_at', 'DESC']]

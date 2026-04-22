@@ -114,7 +114,7 @@ class ReviewService {
                 {
                     model: User,
                     as: 'reviewer',
-                    attributes: ['first_name', 'last_name', 'profile_image']
+                    attributes: ['user_id', 'first_name', 'last_name', 'profile_image', 'email']
                 },
                 {
                     model: Booking,
@@ -138,7 +138,7 @@ class ReviewService {
                 {
                     model: User,
                     as: 'reviewer',
-                    attributes: ['first_name', 'last_name', 'profile_image']
+                    attributes: ['user_id', 'first_name', 'last_name', 'profile_image', 'email']
                 },
                 {
                     model: Booking,

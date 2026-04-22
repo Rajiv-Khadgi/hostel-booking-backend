@@ -182,7 +182,7 @@ class PaymentService {
                 title: 'Payment Failed',
                 message: `Your payment of Rs. ${payment.amount} for ${booking.room.hostel.name} has failed.`,
                 related_id: booking.booking_id,
-                shouldEmail: false // Typically don't email for every failure unless it's critical
+                shouldEmail: false
             });
         }
     }
@@ -486,8 +486,8 @@ class PaymentService {
                 include: [{ 
                     model: Room, 
                     as: 'room', 
-                    attributes: ['room_id', 'room_number', 'price'],
-                    include: [{ model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name', 'city', 'area'] }] 
+                    attributes: ['room_id', 'room_type', 'room_number', 'price'],
+                    include: [{ model: Hostel, as: 'hostel' }] 
                 }]
             }],
             order: [['createdAt', 'DESC']]
@@ -507,8 +507,7 @@ class PaymentService {
                     include: [{
                         model: Hostel,
                         as: 'hostel',
-                        where: { user_id: ownerId },
-                        attributes: ['hostel_id', 'name']
+                        where: { user_id: ownerId }
                     }]
                 }, {
                     model: User,
@@ -530,7 +529,7 @@ class PaymentService {
                     model: Room,
                     as: 'room',
                     attributes: ['room_id', 'room_number', 'price'],
-                    include: [{ model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }]
+                    include: [{ model: Hostel, as: 'hostel' }]
                 }, {
                     model: User,
                     as: 'student',

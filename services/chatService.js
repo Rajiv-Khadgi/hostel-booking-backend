@@ -206,7 +206,7 @@ class ChatService {
             title: 'New Message',
             message: `You have a new message from ${savedMessage.sender.first_name}`,
             related_id: conversationId,
-            shouldEmail: false // Messages usually don't trigger emails unless it's a "missed message" digest, which we haven't implemented.
+            shouldEmail: false
         });
 
         return savedMessage;

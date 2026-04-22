@@ -167,11 +167,10 @@ class BookingService {
                 {
                     model: Room,
                     as: 'room',
-                    attributes: ['room_id', 'room_number', 'price'],
+                    attributes: ['room_id', 'room_type', 'room_number', 'price'],
                     include: [{ 
                         model: Hostel, 
-                        as: 'hostel',
-                        attributes: ['hostel_id', 'name', 'city', 'area']
+                        as: 'hostel'
                     }]
                 },
                 {
@@ -182,7 +181,7 @@ class BookingService {
                 {
                     model: Payment,
                     as: 'payments',
-                    attributes: ['payment_id', 'amount', 'status', 'method', 'updated_at']
+                    attributes: ['payment_id', 'amount', 'status', 'payment_method', 'updated_at']
                 }
             ],
             order: [['created_at', 'DESC']]

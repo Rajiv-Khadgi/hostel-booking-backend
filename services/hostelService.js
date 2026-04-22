@@ -57,8 +57,8 @@ class HostelService {
                 required: false 
             },
             { model: Review, as: 'reviews', attributes: ['rating'], required: false },
-            { model: Amenity, as: 'amenities', attributes: ['name', 'icon'], through: { attributes: [] } },
-            { model: Service, as: 'services', attributes: ['name', 'icon'], through: { attributes: [] } }
+            { model: Amenity, as: 'amenities', attributes: ['amenity_id', 'name', 'icon'], through: { attributes: [] } },
+            { model: Service, as: 'services', attributes: ['service_id', 'name', 'icon'], through: { attributes: [] } }
         ];
 
         // Price & Bed Filter
@@ -80,8 +80,8 @@ class HostelService {
         includeOptions.push({
             model: Room,
             as: 'rooms',
-            where: Object.keys(roomWhere).length > 1 ? roomWhere : { status: 'AVAILABLE' },
-            attributes: ['price', 'available_beds'],
+            where: Object.keys(roomWhere).length > 1 ? roomWhere : {},
+            attributes: ['room_id', 'hostel_id', 'room_type', 'price', 'available_beds'],
             required: requireRooms
         });
 
@@ -90,6 +90,7 @@ class HostelService {
             const amenityList = amenities.split(',');
             includeOptions.forEach(inc => {
                 if (inc.as === 'amenities') {
+                    inc.attributes = ['amenity_id', 'name', 'icon'];
                     inc.where = { name: { [Op.in]: amenityList } };
                     inc.required = true;
                 }
@@ -98,12 +99,12 @@ class HostelService {
 
         const allHostels = await Hostel.findAll({
             where: whereClause,
-            attributes: ['hostel_id', 'name', 'city', 'area', 'gender_type', 'latitude', 'longitude'],
+            attributes: ['hostel_id', 'name', 'city', 'area', 'gender_type', 'latitude', 'longitude', 'status'],
             include: includeOptions,
             order: [['created_at', 'DESC']]
         });
 
-        // Calculate stats & apply remaining filters locally for speed
+        // Calculate stats 
         let processed = allHostels.map(h => {
              const json = h.toJSON();
              const avg_rating = json.reviews?.length ? json.reviews.reduce((a, r) => a + Number(r.rating), 0) / json.reviews.length : 0;
@@ -191,7 +192,7 @@ class HostelService {
                     attributes: ['image_url'],
                     required: false 
                 },
-                { model: Room, as: 'rooms', attributes: ['room_id', 'price'] },
+                { model: Room, as: 'rooms', attributes: ['room_id', 'hostel_id', 'price'] },
                 { model: Review, as: 'reviews', attributes: ['rating'] }
             ],
             order: sequelize.literal('distance ASC')
@@ -202,7 +203,6 @@ class HostelService {
     async findMyHostels(userId) {
         return await Hostel.findAll({
             where: { user_id: userId },
-            attributes: ['hostel_id', 'name', 'city', 'area', 'status', 'created_at'],
             include: [
                 { 
                     model: Image, 
@@ -211,9 +211,13 @@ class HostelService {
                     attributes: ['image_url'],
                     required: false 
                 },
-                { model: Room, as: 'rooms', attributes: ['room_id', 'room_number', 'status'] },
-                { model: Amenity, as: 'amenities', attributes: ['name'], through: { attributes: [] } },
-                { model: Service, as: 'services', attributes: ['name'], through: { attributes: [] } }
+                { 
+                    model: Room, 
+                    as: 'rooms', 
+                    attributes: ['room_id', 'hostel_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status'] 
+                },
+                { model: Amenity, as: 'amenities', attributes: ['amenity_id', 'name', 'icon'], through: { attributes: [] } },
+                { model: Service, as: 'services', attributes: ['service_id', 'name', 'icon'], through: { attributes: [] } }
             ],
             order: [['created_at', 'DESC']]
         });
@@ -227,7 +231,7 @@ class HostelService {
                 {
                     model: Room,
                     as: 'rooms',
-                    attributes: ['room_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status']
+                    attributes: ['room_id', 'hostel_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status']
                 },
                 { 
                     model: Image, 
@@ -236,13 +240,13 @@ class HostelService {
                     attributes: ['image_id', 'image_url', 'is_cover'],
                     required: false 
                 },
-                { model: Amenity, as: 'amenities', attributes: ['name', 'icon'], through: { attributes: [] } },
-                { model: Service, as: 'services', attributes: ['name', 'icon'], through: { attributes: [] } },
+                { model: Amenity, as: 'amenities', attributes: ['amenity_id', 'name', 'icon'], through: { attributes: [] } },
+                { model: Service, as: 'services', attributes: ['service_id', 'name', 'icon'], through: { attributes: [] } },
                 {
                     model: Review,
                     as: 'reviews',
                     attributes: ['review_id', 'rating', 'comments', 'reply', 'reply_date', 'created_at'],
-                    include: [{ model: User, as: 'reviewer', attributes: ['first_name', 'last_name', 'profile_image'] }]
+                    include: [{ model: User, as: 'reviewer', attributes: ['user_id', 'first_name', 'last_name', 'profile_image'] }]
                 }
             ]
         });
@@ -299,7 +303,6 @@ class HostelService {
                 {
                     model: Hostel,
                     as: 'hostel',
-                    attributes: ['hostel_id', 'name', 'city', 'area', 'gender_type', 'latitude', 'longitude'],
                     include: [
                         { 
                             model: Image, 
@@ -308,7 +311,7 @@ class HostelService {
                             attributes: ['image_url'],
                             required: false 
                         },
-                        { model: Room, as: 'rooms', attributes: ['price', 'available_beds'] } 
+                        { model: Room, as: 'rooms', attributes: ['room_id', 'hostel_id', 'price', 'available_beds'] } 
                     ]
                 }
             ]
