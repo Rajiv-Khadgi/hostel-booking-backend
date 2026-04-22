@@ -1,6 +1,4 @@
 import { User } from '../config/database.js';
-import fs from 'fs';
-import path from 'path';
 
 // Get Profile
 export const getProfile = async (req, res) => {

@@ -5,7 +5,6 @@ import { UpdateHostelDTO } from '../dto/UpdateHostelDTO.js';
 // Create Hostel 
 export const createHostel = async (req, res) => {
     try {
-        // TODO: Move this check to Service or proper validator
         const dto = new CreateHostelDTO(req.body);
         const data = await dto.validate();
 
@@ -30,7 +29,6 @@ export const updateHostel = async (req, res) => {
         const dto = new UpdateHostelDTO(req.body);
         const data = await dto.validate();
 
-        // Authorization check (Service could handle this too, but Controller is fine for now)
         const hostel = await HostelService.findById(id);
         if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
 
@@ -263,7 +261,6 @@ export const deleteHostelImage = async (req, res) => {
 
         if (!image) return res.status(404).json({ error: 'Image not found' });
 
-        // Optionally, delete from filesystem here if desired using fs.unlink
 
         await image.destroy();
 

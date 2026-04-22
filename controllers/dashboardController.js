@@ -16,10 +16,10 @@ export const getDashboardStats = async (req, res) => {
             return res.status(403).json({ error: 'Unauthorized role' });
         }
 
-        console.log(`✅ Stats retrieved for ${role}:`, stats);
+        console.log(`Stats retrieved for ${role}:`, stats);
         res.json({ success: true, stats });
     } catch (err) {
-        console.error('❌ Dashboard stats error:', err);
+        console.error('Dashboard stats error:', err);
         res.status(500).json({ error: err.message });
     }
 };

@@ -1,6 +1,6 @@
 // controllers/roomController.js
 
-import { Room, Hostel } from '../config/database.js';
+import { Room, Hostel, Booking } from '../config/database.js';
 import { CreateRoomDTO } from '../dto/CreateRoomDTO.js';
 import { UpdateRoomDTO } from '../dto/UpdateRoomDTO.js';
 
@@ -76,6 +76,27 @@ export const deleteRoom = async (req, res) => {
         const hostel = await Hostel.findByPk(room.hostel_id);
         if (req.user.role !== 'admin' && hostel.user_id !== req.user.id) {
             return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        // 1. Check for Occupancy
+        if (room.available_beds < room.total_beds) {
+            return res.status(400).json({ 
+                error: 'Cannot delete room with active occupancy. Move residents before deleting.' 
+            });
+        }
+
+        // 2. Check for Active Bookings (REQUESTED, APPROVED, CONFIRMED)
+        const activeBooking = await Booking.findOne({
+            where: {
+                room_id: id,
+                status: ['APPROVED', 'CONFIRMED']
+            }
+        });
+
+        if (activeBooking) {
+            return res.status(400).json({ 
+                error: 'Cannot delete room with active or pending booking requests.' 
+            });
         }
 
         await room.destroy();
