@@ -1,6 +1,6 @@
 // controllers/roomController.js
 
-import { Room, Hostel } from '../config/database.js';
+import { Room, Hostel, Booking } from '../config/database.js';
 import { CreateRoomDTO } from '../dto/CreateRoomDTO.js';
 import { UpdateRoomDTO } from '../dto/UpdateRoomDTO.js';
 
@@ -78,6 +78,27 @@ export const deleteRoom = async (req, res) => {
             return res.status(403).json({ error: 'Unauthorized' });
         }
 
+        // 1. Check for Occupancy
+        if (room.available_beds < room.total_beds) {
+            return res.status(400).json({ 
+                error: 'Cannot delete room with active occupancy. Move residents before deleting.' 
+            });
+        }
+
+        // 2. Check for Active Bookings (REQUESTED, APPROVED, CONFIRMED)
+        const activeBooking = await Booking.findOne({
+            where: {
+                room_id: id,
+                status: ['APPROVED', 'CONFIRMED']
+            }
+        });
+
+        if (activeBooking) {
+            return res.status(400).json({ 
+                error: 'Cannot delete room with active or pending booking requests.' 
+            });
+        }
+
         await room.destroy();
         res.json({ success: true, message: 'Room deleted successfully' });
     } catch (err) {
@@ -90,6 +111,7 @@ export const deleteRoom = async (req, res) => {
 export const getRooms = async (req, res) => {
     try {
         const rooms = await Room.findAll({
+            attributes: ['room_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status', 'hostel_id'],
             include: { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }
         });
         res.json({ success: true, rooms });
@@ -104,7 +126,10 @@ export const getRoomById = async (req, res) => {
     try {
         const { id } = req.params;
         const room = await Room.findByPk(id, {
-            include: { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }
+            attributes: ['room_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status', 'hostel_id'],
+            include: [
+                { model: Hostel, as: 'hostel', attributes: ['hostel_id', 'name'] }
+            ]
         });
         if (!room) return res.status(404).json({ error: 'Room not found' });
 
@@ -114,3 +139,4 @@ export const getRoomById = async (req, res) => {
         res.status(400).json({ error: err.message });
     }
 };
+

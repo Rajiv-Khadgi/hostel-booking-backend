@@ -12,7 +12,7 @@ const ImageModel = (sequelize) => {
             allowNull: false
         },
         entity_type: {
-            type: DataTypes.ENUM('HOSTEL', 'ROOM'),
+            type: DataTypes.ENUM('HOSTEL'),
             allowNull: false
         },
         entity_id: {

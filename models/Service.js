@@ -15,6 +15,10 @@ const ServiceModel = (sequelize) => {
         description: {
             type: DataTypes.STRING,
             allowNull: true
+        },
+        icon: {
+            type: DataTypes.STRING,
+            allowNull: true
         }
     }, {
         tableName: 'services',

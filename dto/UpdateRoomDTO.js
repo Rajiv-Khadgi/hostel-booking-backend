@@ -5,6 +5,7 @@ const updateRoomSchema = yup.object({
         .string()
         .oneOf(['SINGLE', 'DOUBLE', 'TRIPLE', 'DORM'])
         .optional(),
+    room_number: yup.string().optional(),
     price: yup.number().positive().optional(),
     total_beds: yup.number().integer().positive().optional(),
     available_beds: yup.number().integer().min(0).optional(),

@@ -26,7 +26,7 @@ const MessageModel = (sequelize) => {
         },
         content: {
             type: DataTypes.TEXT,
-            allowNull: true // Can be null if sending just an attachment
+            allowNull: true // allow null
         },
         attachment_url: {
             type: DataTypes.STRING,

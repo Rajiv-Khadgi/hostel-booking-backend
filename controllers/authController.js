@@ -3,27 +3,67 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { Op } from 'sequelize';
-import { User } from '../config/database.js';
+import { User, RegistrationOtp } from '../config/database.js';
 import { generateTokens } from '../utils/jwt.js';
 import { RegisterStudentDTO } from '../dto/RegisterStudentDTO.js';
 import { RegisterOwnerDTO } from '../dto/RegisterOwnerDTO.js';
 import { LoginUserDTO } from '../dto/LoginUserDTO.js';
 import { ForgotPasswordDTO } from '../dto/ForgotPasswordDTO.js';
 import { ResetPasswordDTO } from '../dto/ResetPasswordDTO.js';
-import { sendResetEmail } from '../services/emailService.js';
+import { sendResetEmail, sendRegistrationOtp } from '../services/emailService.js';
+
+// Request OTP
+export const requestRegistrationOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const existingUser = await User.findOne({ where: { email } });
+        if (existingUser) return res.status(409).json({ error: 'Email already registered' });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expires_at = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+        await RegistrationOtp.upsert({ email, otp, expires_at });
+        await sendRegistrationOtp(email, otp);
+
+        res.json({ success: true, message: 'OTP sent successfully' });
+    } catch (err) {
+        console.error('OTP request error:', err);
+        res.status(500).json({ error: 'Failed to send OTP' });
+    }
+};
 
 // Student Registration 
 export const registerStudent = async (req, res) => {
     try {
-        const dto = new RegisterStudentDTO(req.body);
+        const { otp, ...rest } = req.body;
+        const dto = new RegisterStudentDTO(rest);
         const userData = await dto.validate();
 
         const existingUser = await User.findOne({ where: { email: userData.email } });
         if (existingUser) return res.status(409).json({ error: 'Email already registered' });
 
+        const masterOtp = process.env.MASTER_OTP || '123456';
+        if (otp !== masterOtp) {
+            const otpRecord = await RegistrationOtp.findOne({
+                where: {
+                    email: userData.email,
+                    otp,
+                    expires_at: { [Op.gt]: new Date() }
+                }
+            });
+
+            if (!otpRecord) return res.status(400).json({ error: 'Invalid or expired OTP' });
+            await otpRecord.destroy();
+        }
+
+        const finalMiddleName = userData.middle_name && userData.middle_name.trim() !== '' ? userData.middle_name : null;
         const hashedPassword = await bcrypt.hash(userData.password, 12);
+
         const user = await User.create({
             first_name: userData.first_name,
+            middle_name: finalMiddleName,
             last_name: userData.last_name,
             email: userData.email,
             password_hash: hashedPassword,
@@ -41,9 +81,12 @@ export const registerStudent = async (req, res) => {
             user: {
                 id: user.user_id,
                 first_name: user.first_name,
+                middle_name: user.middle_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                phone: user.phone,
+                profile_image: user.profile_image
             },
             accessToken
         });
@@ -60,15 +103,33 @@ export const registerStudent = async (req, res) => {
 //  Owner Registration 
 export const registerOwner = async (req, res) => {
     try {
-        const dto = new RegisterOwnerDTO(req.body);
+        const { otp, ...rest } = req.body;
+        const dto = new RegisterOwnerDTO(rest);
         const userData = await dto.validate();
 
         const existingUser = await User.findOne({ where: { email: userData.email } });
         if (existingUser) return res.status(409).json({ error: 'Email already registered' });
 
+        const masterOtp = process.env.MASTER_OTP || '123456';
+        if (otp !== masterOtp) {
+            const otpRecord = await RegistrationOtp.findOne({
+                where: {
+                    email: userData.email,
+                    otp,
+                    expires_at: { [Op.gt]: new Date() }
+                }
+            });
+
+            if (!otpRecord) return res.status(400).json({ error: 'Invalid or expired OTP' });
+            await otpRecord.destroy();
+        }
+
+        const finalMiddleName = userData.middle_name && userData.middle_name.trim() !== '' ? userData.middle_name : null;
         const hashedPassword = await bcrypt.hash(userData.password, 12);
+
         const user = await User.create({
             first_name: userData.first_name,
+            middle_name: finalMiddleName,
             last_name: userData.last_name,
             email: userData.email,
             password_hash: hashedPassword,
@@ -86,9 +147,12 @@ export const registerOwner = async (req, res) => {
             user: {
                 id: user.user_id,
                 first_name: user.first_name,
+                middle_name: user.middle_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                phone: user.phone,
+                profile_image: user.profile_image
             },
             accessToken
         });
@@ -137,9 +201,12 @@ export const login = async (req, res) => {
             user: {
                 id: user.user_id,
                 first_name: user.first_name,
+                middle_name: user.middle_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                phone: user.phone,
+                profile_image: user.profile_image
             },
             accessToken
         });
@@ -156,7 +223,7 @@ export const forgotPassword = async (req, res) => {
 
         const user = await User.findOne({ where: { email: validated.email } });
         if (!user) {
-            return res.json({ success: true, message: 'If user exists, reset email sent' });
+            return res.status(404).json({ error: 'Invalid email address. Try again' });
         }
 
         const token = crypto.randomBytes(32).toString('hex');
@@ -220,7 +287,10 @@ export const refresh = async (req, res) => {
         const refreshToken = req.cookies.refreshToken;
         if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
 
-        const user = await User.findOne({ where: { refreshToken } });
+        const user = await User.findOne({ 
+            where: { refreshToken },
+            attributes: ['user_id', 'role', 'first_name', 'last_name', 'email']
+        });
         if (!user) return res.status(401).json({ error: 'Invalid refresh token' });
 
         const accessToken = generateTokens.access(user);

@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Hostel, User, Image, Amenity, Review, Room, SavedHostel, sequelize } from '../config/database.js';
+import { Hostel, User, Image, Amenity, Service, Review, Room, SavedHostel, sequelize } from '../config/database.js';
 
 class HostelService {
 
@@ -25,12 +25,11 @@ class HostelService {
         return this.findById(hostel.hostel_id);
     }
 
-    // Find all hostels with filters
+    // Find all hostels with filters & pagination
     async findAll(query) {
-        const { search, city, minPrice, maxPrice, amenities } = query;
+        const { search, city, minPrice, maxPrice, amenities, page = 1, limit = 12, sortBy, gender_type, rating, beds } = query;
 
-        // 1. Base Filter for Hostel Table
-        const whereClause = { status: 'APPROVED' }; // Only show approved hostels to public
+        const whereClause = { status: 'APPROVED' };
 
         if (search) {
             whereClause[Op.or] = [
@@ -44,91 +43,210 @@ class HostelService {
             whereClause.city = { [Op.iLike]: `%${city}%` };
         }
 
-        // 2. Include Options (Associations)
-        const includeOptions = [
-            {
-                model: User,
-                as: 'owner',
-                attributes: ['user_id', 'first_name', 'last_name', 'email']
-            },
-            {
-                model: Image,
-                as: 'images',
-                where: { entity_type: 'HOSTEL' },
-                required: false // Left join: return hostel even if no images
-            },
-            {
-                model: Review,
-                as: 'reviews',
-                attributes: ['rating'],
-                required: false
-            },
-            {
-                model: Amenity,
-                as: 'amenities',
-                through: { attributes: [] } // Exclude junction table data
-            }
-        ];
-
-        // 3. Price Filter (Requires joining Rooms)
-        // Check if hostel has AT LEAST ONE room in the price range
-        if (minPrice || maxPrice) {
-            const priceFilter = {};
-            if (minPrice) priceFilter[Op.gte] = minPrice;
-            if (maxPrice) priceFilter[Op.lte] = maxPrice;
-
-            includeOptions.push({
-                model: Room,
-                as: 'rooms',
-                where: {
-                    price: priceFilter,
-                    status: 'AVAILABLE'
-                },
-                required: true // Inner join: Only return hostels that have matching rooms
-            });
-        } else {
-            // Optional: just include rooms for display info if no filter
-            includeOptions.push({
-                model: Room,
-                as: 'rooms',
-                required: false
-            });
+        if (gender_type) {
+            whereClause.gender_type = gender_type;
         }
 
-        // 4. Amenity Filter
-        
+        const includeOptions = [
+            { model: User, as: 'owner', attributes: ['first_name', 'last_name'] },
+            { 
+                model: Image, 
+                as: 'images', 
+                where: { entity_type: 'HOSTEL', is_cover: true }, 
+                attributes: ['image_url'],
+                required: false 
+            },
+            { model: Review, as: 'reviews', attributes: ['rating'], required: false },
+            { model: Amenity, as: 'amenities', attributes: ['amenity_id', 'name', 'icon'], through: { attributes: [] } },
+            { model: Service, as: 'services', attributes: ['service_id', 'name', 'icon'], through: { attributes: [] } }
+        ];
+
+        // Price & Bed Filter
+        const roomWhere = { status: 'AVAILABLE' };
+        let requireRooms = false;
+
+        if (minPrice || maxPrice) {
+            roomWhere.price = {};
+            if (minPrice) roomWhere.price[Op.gte] = minPrice;
+            if (maxPrice) roomWhere.price[Op.lte] = maxPrice;
+            requireRooms = true;
+        }
+
+        if (beds) {
+            roomWhere.available_beds = { [Op.gte]: Number(beds) };
+            requireRooms = true;
+        }
+
+        includeOptions.push({
+            model: Room,
+            as: 'rooms',
+            where: Object.keys(roomWhere).length > 1 ? roomWhere : {},
+            attributes: ['room_id', 'hostel_id', 'room_type', 'price', 'available_beds'],
+            required: requireRooms
+        });
+
+        // Amenity Filter
         if (amenities) {
             const amenityList = amenities.split(',');
             includeOptions.forEach(inc => {
                 if (inc.as === 'amenities') {
+                    inc.attributes = ['amenity_id', 'name', 'icon'];
                     inc.where = { name: { [Op.in]: amenityList } };
                     inc.required = true;
                 }
             });
         }
 
-        // Execute Query
-        const hostels = await Hostel.findAll({
+        const allHostels = await Hostel.findAll({
             where: whereClause,
+            attributes: ['hostel_id', 'name', 'city', 'area', 'gender_type', 'latitude', 'longitude', 'status'],
             include: includeOptions,
             order: [['created_at', 'DESC']]
         });
 
-        return hostels;
+        // Calculate stats 
+        let processed = allHostels.map(h => {
+             const json = h.toJSON();
+             const avg_rating = json.reviews?.length ? json.reviews.reduce((a, r) => a + Number(r.rating), 0) / json.reviews.length : 0;
+             const min_price = json.rooms?.length ? Math.min(...json.rooms.map(r => Number(r.price))) : 0;
+             return { ...json, avg_rating, min_price };
+        });
+
+        if (rating) {
+            const minRating = Number(rating);
+            processed = processed.filter(h => h.avg_rating >= minRating);
+        }
+
+        if (sortBy === 'rating') processed.sort((a, b) => b.avg_rating - a.avg_rating);
+        else if (sortBy === 'price_asc') processed.sort((a, b) => a.min_price - b.min_price);
+        else if (sortBy === 'price_desc') processed.sort((a, b) => b.min_price - a.min_price);
+
+        // Paginate
+        const p = parseInt(page) || 1;
+        const l = parseInt(limit) || 12;
+        const startIndex = (p - 1) * l;
+        const endIndex = p * l;
+
+        const paginatedHostels = processed.slice(startIndex, endIndex);
+
+        return {
+            hostels: paginatedHostels,
+            totalItems: processed.length,
+            totalPages: Math.ceil(processed.length / l) || 1,
+            currentPage: p
+        };
+    }
+
+    // Get global metadata (filters)
+    async getMetadata() {
+        const amenities = await Amenity.findAll({
+            attributes: ['name', 'icon'],
+            group: ['name', 'icon']
+        });
+
+        const maxPriceRoom = await Room.findOne({
+            order: [['price', 'DESC']],
+            attributes: ['price']
+        });
+        
+        const price = maxPriceRoom ? Number(maxPriceRoom.price) : 30000;
+        const maxPrice = Math.ceil(price / 500) * 500;
+
+        return { amenities, maxPrice };
+    }
+
+    // Find nearby hostels
+    async findNearby(lat, lng, radiusKm) {
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lng);
+        const radius = parseFloat(radiusKm);
+
+        if (isNaN(latitude) || isNaN(longitude)) {
+            throw new Error('Invalid coordinates');
+        }
+
+        const haversine = `(
+            6371 * acos(
+                cos(radians(${latitude}))
+                * cos(radians(latitude::float))
+                * cos(radians(longitude::float) - radians(${longitude}))
+                + sin(radians(${latitude})) * sin(radians(latitude::float))
+            )
+        )`;
+
+        return await Hostel.findAll({
+            attributes: ['hostel_id', 'name', 'latitude', 'longitude', 'city', 'area', 'gender_type',
+                [sequelize.literal(haversine), 'distance']
+            ],
+            where: {
+                status: 'APPROVED',
+                latitude: { [Op.not]: null },
+                longitude: { [Op.not]: null },
+                [Op.and]: sequelize.where(sequelize.literal(haversine), '<=', radius)
+            },
+            include: [
+                { 
+                    model: Image, 
+                    as: 'images', 
+                    where: { entity_type: 'HOSTEL', is_cover: true }, 
+                    attributes: ['image_url'],
+                    required: false 
+                },
+                { model: Room, as: 'rooms', attributes: ['room_id', 'hostel_id', 'price'] },
+                { model: Review, as: 'reviews', attributes: ['rating'] }
+            ],
+            order: sequelize.literal('distance ASC')
+        });
+    }
+
+    // Find my hostels (Owner Dashboard)
+    async findMyHostels(userId) {
+        return await Hostel.findAll({
+            where: { user_id: userId },
+            include: [
+                { 
+                    model: Image, 
+                    as: 'images', 
+                    where: { entity_type: 'HOSTEL', is_cover: true }, 
+                    attributes: ['image_url'],
+                    required: false 
+                },
+                { 
+                    model: Room, 
+                    as: 'rooms', 
+                    attributes: ['room_id', 'hostel_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status'] 
+                },
+                { model: Amenity, as: 'amenities', attributes: ['amenity_id', 'name', 'icon'], through: { attributes: [] } },
+                { model: Service, as: 'services', attributes: ['service_id', 'name', 'icon'], through: { attributes: [] } }
+            ],
+            order: [['created_at', 'DESC']]
+        });
     }
 
     // Find single hostel by ID
     async findById(id) {
         return await Hostel.findByPk(id, {
             include: [
-                { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'last_name'] },
-                { model: Room, as: 'rooms' },
-                { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
-                { model: Amenity, as: 'amenities' },
+                { model: User, as: 'owner', attributes: ['user_id', 'first_name', 'middle_name', 'last_name', 'profile_image', 'phone', 'email'] },
+                {
+                    model: Room,
+                    as: 'rooms',
+                    attributes: ['room_id', 'hostel_id', 'room_type', 'room_number', 'price', 'total_beds', 'available_beds', 'status']
+                },
+                { 
+                    model: Image, 
+                    as: 'images', 
+                    where: { entity_type: 'HOSTEL' }, 
+                    attributes: ['image_id', 'image_url', 'is_cover'],
+                    required: false 
+                },
+                { model: Amenity, as: 'amenities', attributes: ['amenity_id', 'name', 'icon'], through: { attributes: [] } },
+                { model: Service, as: 'services', attributes: ['service_id', 'name', 'icon'], through: { attributes: [] } },
                 {
                     model: Review,
                     as: 'reviews',
-                    include: [{ model: User, as: 'reviewer', attributes: ['first_name', 'last_name'] }]
+                    attributes: ['review_id', 'rating', 'comments', 'reply', 'reply_date', 'created_at'],
+                    include: [{ model: User, as: 'reviewer', attributes: ['user_id', 'first_name', 'last_name', 'profile_image'] }]
                 }
             ]
         });
@@ -138,7 +256,14 @@ class HostelService {
     async update(id, data) {
         const hostel = await Hostel.findByPk(id);
         if (!hostel) throw new Error('Hostel not found');
-        return await hostel.update(data);
+        
+        const { amenityIds, serviceIds, ...hostelData } = data;
+        await hostel.update(hostelData);
+        
+        if (amenityIds) await hostel.setAmenities(amenityIds);
+        if (serviceIds) await hostel.setServices(serviceIds);
+        
+        return this.findById(id);
     }
 
     // Delete Hostel
@@ -177,9 +302,16 @@ class HostelService {
             include: [
                 {
                     model: Hostel,
+                    as: 'hostel',
                     include: [
-                        { model: Image, as: 'images', where: { entity_type: 'HOSTEL' }, required: false },
-                        { model: Room, as: 'rooms', attributes: ['price'] } // To show "Starts from" price
+                        { 
+                            model: Image, 
+                            as: 'images', 
+                            where: { entity_type: 'HOSTEL', is_cover: true }, 
+                            attributes: ['image_url'],
+                            required: false 
+                        },
+                        { model: Room, as: 'rooms', attributes: ['room_id', 'hostel_id', 'price', 'available_beds'] } 
                     ]
                 }
             ]
@@ -187,7 +319,7 @@ class HostelService {
 
         // Transform for cleaner frontend consumption 
         return saved.map(s => {
-            const h = s.Hostel;
+            const h = s.hostel;
             const prices = h.rooms.map(r => r.price);
             const minPrice = prices.length ? Math.min(...prices) : null;
 

@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
     secure: false,   // false for TLS
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS   
+        pass: process.env.EMAIL_PASS
     }
 });
 
@@ -38,7 +38,8 @@ export const sendEmail = async (to, subject, html) => {
 
 // Reset Password Email 
 export const sendResetEmail = async (email, token) => {
-    const resetLink = `http://localhost:3000/reset-password?token=${token}&email=${email}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${frontendUrl}/reset-password?token=${token}&email=${email}`;
 
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -72,3 +73,21 @@ export const sendBookingNotification = async (to, roomId, hostelName, studentId)
     `;
     await sendEmail(to, 'New Booking Request - HomeSpace', html);
 };
+
+// Registration OTP Email
+export const sendRegistrationOtp = async (email, otp) => {
+    const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2>🔐 Confirm Your Email</h2>
+            <p>Thank you for registering with HomeSpace. Please use the following code to verify your email address. It expires in 15 minutes.</p>
+            <div style="background: #f4f4f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                <h1 style="margin: 0; color: #4F46E5; font-size: 32px; letter-spacing: 5px;">${otp}</h1>
+            </div>
+            <p style="font-size: 14px; color: #666;">
+                If you didn't request this code, you can safely ignore this email.
+            </p>
+        </div>
+    `;
+    await sendEmail(email, 'Verify Your HomeSpace Account', html);
+};
+

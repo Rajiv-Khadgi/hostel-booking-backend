@@ -1,3 +1,5 @@
 .env
-scripts/
-Minimal Frontend/
+/scripts
+uploads/
+node_modules/
+tests/

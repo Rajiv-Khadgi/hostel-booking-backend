@@ -1,6 +1,4 @@
 import { User } from '../config/database.js';
-import fs from 'fs';
-import path from 'path';
 
 // Get Profile
 export const getProfile = async (req, res) => {
@@ -31,7 +29,7 @@ export const getProfile = async (req, res) => {
 // Update Profile
 export const updateProfile = async (req, res) => {
     try {
-        const { first_name, last_name, phone } = req.body;
+        const { first_name, middle_name, last_name, phone, dob, gender, institute, recommendations } = req.body;
         const userId = req.user.id;
 
         const user = await User.findByPk(userId);
@@ -39,22 +37,18 @@ export const updateProfile = async (req, res) => {
 
         let updateData = {};
         if (first_name) updateData.first_name = first_name;
+        if (middle_name !== undefined) updateData.middle_name = middle_name;
         if (last_name) updateData.last_name = last_name;
         if (phone) updateData.phone = phone;
+        if (dob !== undefined) updateData.dob = dob;
+        if (gender !== undefined) updateData.gender = gender;
+        if (institute !== undefined) updateData.institute = institute;
+        if (recommendations !== undefined) updateData.recommendations = recommendations;
 
         // Handle Image Upload
         if (req.file) {
-            // Delete old image if it exists and is not the default
-            if (user.profile_image) {
-                const oldPath = path.resolve(user.profile_image);
-                if (fs.existsSync(oldPath)) {
-                    fs.unlink(oldPath, (err) => {
-                        if (err) console.error('Failed to delete old avatar:', err);
-                    });
-                }
-            }
-            // Save relative path (normalized for Windows/Linux compatibility)
-            updateData.profile_image = req.file.path.replace(/\\/g, '/');
+            // Save the Cloudinary URL
+            updateData.profile_image = req.file.path;
         }
 
         await user.update(updateData);

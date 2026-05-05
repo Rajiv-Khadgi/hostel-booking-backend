@@ -16,8 +16,8 @@ router.get('/', getRooms);
 router.get('/:id', getRoomById);
 
 // Owner/Admin only
-router.post('/', authenticate, authorize('owner','admin'), createRoom);
-router.put('/:id', authenticate, authorize('owner','admin'), updateRoom);
-router.delete('/:id', authenticate, authorize('owner','admin'), deleteRoom);
+router.post('/', authenticate, authorize('owner', 'admin'), createRoom);
+router.put('/:id', authenticate, authorize('owner', 'admin'), updateRoom);
+router.delete('/:id', authenticate, authorize('owner', 'admin'), deleteRoom);
 
 export default router;

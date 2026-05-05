@@ -1,5 +1,3 @@
-// controllers/bookingController.js
-
 import BookingService from '../services/bookingService.js';
 import { CreateBookingDTO } from '../dto/CreateBookingDTO.js';
 
@@ -20,6 +18,7 @@ export const createBooking = async (req, res) => {
     } catch (err) {
         // Handle specific error types if needed, or generic
         if (err.message === 'Room not found') return res.status(404).json({ error: err.message });
+        if (err.message === 'Student not found') return res.status(404).json({ error: err.message });
         if (err.message.includes('already')) return res.status(409).json({ error: err.message });
         if (err.message.includes('fully booked')) return res.status(409).json({ error: err.message });
 
@@ -35,7 +34,6 @@ export const updateBookingStatus = async (req, res) => {
         const { status } = req.body;
 
         const booking = await BookingService.updateStatus(bookingId, status, req.user.id, req.user.role);
-
         return res.json({
             success: true,
             message: `Booking ${status.toLowerCase()} successfully`,

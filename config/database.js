@@ -8,6 +8,8 @@ import ReviewModel from '../models/Review.js';
 import ImageModel from '../models/Image.js'; // Polymorphic
 import BookingModel from '../models/Booking.js';
 import VisitModel from '../models/Visit.js';
+import RegistrationOtpModel from '../models/RegistrationOtp.js';
+import NotificationModel from '../models/Notification.js';
 
 
 export const sequelize = new Sequelize(
@@ -25,6 +27,7 @@ export const sequelize = new Sequelize(
 import SavedHostelModel from '../models/SavedHostel.js';
 import ConversationModel from '../models/Conversation.js';
 import MessageModel from '../models/Message.js';
+import PaymentModel from '../models/Payment.js';
 
 // Initialize Models
 export const User = UserModel(sequelize);
@@ -39,6 +42,9 @@ export const Visit = VisitModel(sequelize);
 export const SavedHostel = SavedHostelModel(sequelize);
 export const Conversation = ConversationModel(sequelize);
 export const Message = MessageModel(sequelize);
+export const Payment = PaymentModel(sequelize);
+export const RegistrationOtp = RegistrationOtpModel(sequelize);
+export const Notification = NotificationModel(sequelize);
 
 
 // Associations
@@ -69,15 +75,7 @@ Hostel.hasMany(Image, {
     as: 'images'
 });
 
-Room.hasMany(Image, {
-    foreignKey: 'entity_id',
-    constraints: false,
-    scope: { entity_type: 'ROOM' },
-    as: 'images'
-});
-
 Image.belongsTo(Hostel, { foreignKey: 'entity_id', constraints: false });
-Image.belongsTo(Room, { foreignKey: 'entity_id', constraints: false });
 
 // Amenities & Services (Many-to-Many)
 Hostel.belongsToMany(Amenity, { through: 'HostelAmenities', foreignKey: 'hostel_id', as: 'amenities' });
@@ -92,6 +90,9 @@ Review.belongsTo(User, { foreignKey: 'user_id', as: 'reviewer' });
 
 Hostel.hasMany(Review, { foreignKey: 'hostel_id', as: 'reviews' });
 Review.belongsTo(Hostel, { foreignKey: 'hostel_id', as: 'hostel' });
+
+Booking.hasOne(Review, { foreignKey: 'booking_id', as: 'review' });
+Review.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
 
 // Bookings
 User.hasMany(Booking, { foreignKey: 'user_id', as: 'bookings' });
@@ -118,6 +119,15 @@ Conversation.hasMany(Message, { foreignKey: 'conversation_id', as: 'messages' })
 Message.belongsTo(Conversation, { foreignKey: 'conversation_id' });
 
 Message.belongsTo(User, { as: 'sender', foreignKey: 'sender_id' });
+ 
+// Payments
+Booking.hasMany(Payment, { foreignKey: 'booking_id', as: 'payments' });
+Payment.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
+
+// Notifications
+User.hasMany(Notification, { foreignKey: 'recipient_id', as: 'notifications' });
+Notification.belongsTo(User, { foreignKey: 'recipient_id', as: 'recipient' });
+Notification.belongsTo(User, { foreignKey: 'sender_id', as: 'sender' });
 
 
 export const initDB = async () => {
